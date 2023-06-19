@@ -24,10 +24,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/10)
+logitpositiverate[1] ~ dnorm(theta0,1/0.1)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -43,11 +43,11 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 2);
-rho ~ dnorm(0, 1/5)T(0,);
+theta0 ~ dnorm(0, 1);
+rho ~ dnorm(0, 1/10)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 2);
+	gamma0[k] ~ dnorm(0, 1);
 }
 }'
 
@@ -65,10 +65,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/10)
+logitpositiverate[1] ~ dnorm(theta0,1/0.1)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -84,12 +84,12 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 2);
-rho ~ dnorm(0, 1/5)T(0,);
+theta0 ~ dnorm(0, 1);
+rho ~ dnorm(0, 1/10)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 2);
-	gamma1[k] ~ dnorm(0, 1/5);
+	gamma0[k] ~ dnorm(0, 1);
+	gamma1[k] ~ dnorm(0, 1/0.1);
 }
 }'
 
@@ -105,21 +105,21 @@ for (i in 1:Ivec[1]){
 
 for (k in 2:K){
 
-  gamma[k,1] ~ dnorm(gamma0[k],1/10)
+  gamma[k,1] ~ dnorm(gamma0[k],1/0.1)
   phi[k,1] <- exp(gamma[k,1])
   
 	for (t in 2:T){
-	  gamma[k,t] ~ dnorm(gamma[k,t-1], pi)
+	  gamma[k,t] ~ dnorm(gamma[k,t-1], 1/pi)
 	  phi[k,t] <- exp(gamma[k,t])
 	  
 	}
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/10)
+logitpositiverate[1] ~ dnorm(theta0,1/0.1)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -135,12 +135,12 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 2);
-rho ~ dnorm(0, 1/5)T(0,);
-pi ~ dnorm(0, 1/5)T(0,);
+theta0 ~ dnorm(0, 1);
+rho ~ dnorm(0, 1/10)T(0,);
+pi ~ dnorm(0, 1/10)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 2);
+	gamma0[k] ~ dnorm(0, 1);
 
 }
 
@@ -286,7 +286,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
   
 }
 
-generate.model.ests <- function(model.string, data.list, params ,n.chains =3, n.iter = 20000, thin = 10){
+generate.model.ests <- function(model.string, data.list, params ,n.chains =3, n.iter = 25000, thin = 10){
   
   jags.mod <- jags.model(textConnection(model.string), 
                          data = data.list, n.chains = n.chains, n.adapt = 10000,quiet = T)
@@ -300,16 +300,17 @@ generate.model.ests <- function(model.string, data.list, params ,n.chains =3, n.
 extract.unbiased <- function(datalist){
   K = 1
   Ivec = 3
+  T <- datalist$T
   new.list <- list(K = K, Ivec = Ivec, 
-                   times = matrix(datalist$times[1,],ncol = 5), N = datalist$N, T = 5,
-                   Y = matrix(datalist$Y[1,],ncol = 5), smalln = matrix(datalist$smalln[1,],ncol = 5))
+                   times = matrix(datalist$times[1,],ncol = T), N = datalist$N, T = T,
+                   Y = matrix(datalist$Y[1,],ncol = T), smalln = matrix(datalist$smalln[1,],ncol = T))
   
   return(new.list)
 }
 
 
 
-NN <- 75
+NN <- 150
 set.seed(98301930)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
@@ -414,7 +415,7 @@ results.plot.unb <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), re
 #results.final <- rbind(results)
 
 ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 300 in 3x3 design, 3 timepoints") + geom_point(data = results.plot.unb)+
+  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 150 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
 
