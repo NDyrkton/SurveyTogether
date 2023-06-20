@@ -193,9 +193,10 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       }
     }
     
-    
-    parameters = c(gamma0,theta_t, theta0)
-    names(parameters) = c("gamma01","gamma02","gamma03","theta_1","theta_2", "theta_3","theta_4","theta_5","theta0")
+    parameters <-  c(gamma0,theta_t, theta0)
+    gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
+    theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
+    names(parameters) <-  c(gamma0.names,theta.names,"theta0")
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
     
@@ -227,9 +228,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       
     }  
     
-    parameters <- c(gamma_0k,gamma_1k,theta_t, theta0)
-    names(parameters) <-  c("gamma01","gamma02","gamma03",
-                            "gamma11","gamma12","gamma13" ,"theta_1","theta_2", "theta_3","theta_4","theta_5","theta0")
+    parameters <-  c(gamma_0k,gamma_1k,theta_t, theta0)
+    gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
+    gamma1.names <- paste(rep("gamma1",K),1:K,sep = "")
+    theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
+    names(parameters) <-  c(gamma0.names,gamma1.names,theta.names,"theta0")
+    
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln,params = parameters))
     
   }else if(phi == "walk"){
@@ -276,10 +280,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       }
     }
     parameters <- c(gamma_0k,as.numeric(gamma_kt),theta_t,theta0)
-    names(parameters) <- c("gamma01","gamma02","gamma03","gamma11",
-                           "gamma21","gamma31","gamma12", "gamma22", "gamma32",
-                           "gamma13","gamma23","gamma33","gamma14","gamma24","gamma34","gamma15","gamma25","gamma35", "theta_1","theta_2",
-                           "theta_3","theta_4","theta_5","theta0")
+    gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
+    gamma_kt.c <- expand.grid(1:K,1:length(t))
+    gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
+    theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
+    names(parameters) <-  c(gamma0.names,gamma_kt.names,theta.names,"theta0")
+
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
   }
@@ -310,8 +316,8 @@ extract.unbiased <- function(datalist){
 
 
 
-NN <- 150
-set.seed(98301930)
+NN <- 300
+set.seed(11947194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
 colnames(error) <- c("const x const","const x linear", "const x walk",
@@ -324,15 +330,17 @@ colnames(only.unbiased) <- c("const x const","const x linear", "const x walk",
                              "walk x const", "walk x linear", "walk x walk")
 
 
+
+#t1 <- Sys.time()
 for(j in 1:NN){
   
   data.const.phi <- generate.dataset(phi = 'constant')
   data.linear.phi <- generate.dataset(phi = 'linear')
   data.walk.phi <- generate.dataset(phi = 'walk')
   
-  pos.rate.const <- data.const.phi$params["theta_5"]
-  pos.rate.linear <- data.linear.phi$params["theta_5"]
-  pos.rate.walk <- data.walk.phi$params["theta_5"]
+  pos.rate.const <- data.const.phi$params["theta5"]
+  pos.rate.linear <- data.linear.phi$params["theta5"]
+  pos.rate.walk <- data.walk.phi$params["theta5"]
   
   unbiased.const.phi <- extract.unbiased(data.const.phi)
   unbiased.linear.phi <- extract.unbiased(data.linear.phi)
@@ -340,7 +348,7 @@ for(j in 1:NN){
   
   #data x model
   
-  if(j %% 5 ==0) print(j)
+  if(j %% 10 ==0) print(j)
   
   const.const <- generate.model.ests(model.string = mod.constant.phi, data.list = data.const.phi[-8], params = "positiverate")
   error[j,"const x const"] <- pos.rate.const - const.const[5]
@@ -412,19 +420,72 @@ result.RMSE.unb <- apply(only.unbiased,2,function(x){sqrt(mean((100*x)^2))})
 results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const","linear","walk"),3),RMSE = result.RMSE)
 results.plot.unb <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const.1","linear.1","walk.1"),3),RMSE = result.RMSE.unb)
 
-#results.final <- rbind(results)
-
 ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 150 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
+  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 100 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
 
 
 
-write.csv(results.plot,"C:/Users/ndyrk/OneDrive/Masters/Masters Project/RMSE_3x3.csv",row.names = T)
 
-write.csv(results.plot.unb,"C:/Users/ndyrk/OneDrive/Masters/Masters Project/RMSE_3x3_unb.csv",row.names = T)
+#SAVE results?
+write.csv(results.plot,"Results/RMSE_with_bias.csv",row.names = T)
+write.csv(results.plot.unb,"Results/RMSE_only_unbiased.csv",row.names = T)
+write.csv(error,"Results/RMSE_total.csv",row.names = T)
 
-write.csv(error,"C:/Users/ndyrk/OneDrive/Masters/Masters Project/RMSE_total.csv",row.names = T)
 
 
+#try parallel
+
+cl <- makePSOCKcluster(3)
+
+tmp <- clusterEvalQ(cl, library(dclone))
+#parLoadModule(cl, "glm")
+#load.module("lecuyer")
+parLoadModule(cl,"lecuyer")
+
+data.const.phi <- generate.dataset(phi = 'constant')
+
+model <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:Ivec[1]){
+		phi[1,i] <- 1	}
+
+for (k in 2:K){
+	for (i in 1:Ivec[k]){
+		phi[k,i] <- exp(gamma0[k])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/0.1)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+for(t in 1:T){
+	P[t] ~ dbin(positiverate[t], N)
+}
+
+for (k in 1:K){
+	for (i in 1:Ivec[k]){
+		
+		Y[k,i] ~ dhyper(P[times[k,i]], N-P[times[k,i]], smalln[k,i], phi[k,i]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(0, 1);
+rho ~ dnorm(0, 1/10)T(0,);
+
+for (k in 1:K){
+	gamma0[k] ~ dnorm(0, 1);
+}
+}')
+
+res <- jags.parfit(cl, data.const.phi[-8], "positiverate", model,
+            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)

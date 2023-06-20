@@ -240,7 +240,6 @@ gen.norm.dat <- function(N= 10000, K =3, ts = c(1:5), ns = rep(100,length(ts)), 
     ###
     parameters <- c(mu0,phi0,phi_kt,rho,mu)
     phi0.names <- paste(rep("phi0",K),1:K,sep = '')
-    phi_kt.names <- character(K*len)
     phi_kt.c <- expand.grid(1:K,1:len)
     phi_kt.names <- paste(rep("phi",K*len),as.character(phi_kt.c$Var1),as.character(phi_kt.c$Var2),sep = '')
     mu.names <- paste(rep("mu",len),ts,sep = '')
