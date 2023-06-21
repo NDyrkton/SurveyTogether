@@ -25,10 +25,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.1)
+logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -45,7 +45,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, 1/10)T(0,);
+rho ~ dnorm(0, pow(1/10,-2))T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -66,10 +66,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.1)
+logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -86,11 +86,11 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, 1/10)T(0,);
+rho ~ dnorm(0, pow(1/10,-2))T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.1);
+	gamma1[k] ~ dnorm(0, pow(0.1,-2));
 }
 }')
 
@@ -106,21 +106,21 @@ for (i in 1:Ivec[1]){
 
 for (k in 2:K){
 
-  gamma[k,1] ~ dnorm(gamma0[k],1/0.1)
+  gamma[k,1] ~ dnorm(gamma0[k],pow(0.1,-2))
   phi[k,1] <- exp(gamma[k,1])
   
 	for (t in 2:T){
-	  gamma[k,t] ~ dnorm(gamma[k,t-1], 1/pi)
+	  gamma[k,t] ~ dnorm(gamma[k,t-1], pow(pi,-2))
 	  phi[k,t] <- exp(gamma[k,t])
 	  
 	}
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.1)
+logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -137,8 +137,8 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, 1/10)T(0,);
-pi ~ dnorm(0, 1/10)T(0,);
+rho ~ dnorm(0, pow(1/10,-2))T(0,);
+pi ~ dnorm(0, pow(1/10,-2))T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -319,7 +319,7 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 500
+NN <- 250
 set.seed(11947194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
@@ -334,7 +334,7 @@ colnames(only.unbiased) <- c("const x const","const x linear", "const x walk",
 
 
 
-t1 <- Sys.time()
+#t1 <- Sys.time()
 
 for(j in 1:NN){
   
@@ -443,9 +443,14 @@ results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c(
 results.plot.unb <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const.1","linear.1","walk.1"),3),RMSE = result.RMSE.unb)
 
 ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 100 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
+  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 500 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
+ 
 
+
+write.csv(results.plot,"Results/RMSE_with_bias.csv",row.names = T)
+write.csv(results.plot.unb,"Results/RMSE_only_unbiased.csv",row.names = T)
+write.csv(error,"Results/RMSE_total.csv",row.names = T)
 
 
