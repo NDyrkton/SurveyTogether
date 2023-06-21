@@ -1,0 +1,10 @@
+"","data","model","RMSE"
+"const x const","const","const",5.42925842537928
+"const x linear","const","linear",5.50878790043528
+"const x walk","const","walk",5.61530789380932
+"linear x const","linear","const",5.44957177950733
+"linear x linear","linear","linear",5.39046123894345
+"linear x walk","linear","walk",5.59809893713869
+"walk x const","walk","const",5.44487070831462
+"walk x linear","walk","linear",5.49005955175673
+"walk x walk","walk","walk",5.55456432115769
