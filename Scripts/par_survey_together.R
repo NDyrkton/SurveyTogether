@@ -5,12 +5,13 @@ library(MCMCpack)
 library(rjags)
 library(truncnorm)
 library(ggplot2)
+library(dclone)
 
 #First step is to generate data under 3 conditions for phi (bias term)
 #1: Phi is constant by  time, 2: Phi is linear in time, and 3: Phi follows a random walk 
 
 #JAGS MODEL for constant phi
-mod.constant.phi<- '
+mod.const.phi<- custommodel('
 model{	
 #likelihood
 
@@ -49,9 +50,9 @@ rho ~ dnorm(0, 1/10)T(0,);
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
 }
-}'
+}')
 
-mod.linear.phi <- '
+mod.linear.phi <- custommodel('
 model{	
 #likelihood
 
@@ -91,9 +92,9 @@ for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
 	gamma1[k] ~ dnorm(0, 1/0.1);
 }
-}'
+}')
 
-mod.walk.phi <- '
+mod.walk.phi <- custommodel('
 model{	
 #likelihood
 
@@ -144,7 +145,7 @@ for (k in 1:K){
 
 }
 
-}'
+}')
 
 #helper functions
 
@@ -285,22 +286,11 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
     names(parameters) <-  c(gamma0.names,gamma_kt.names,theta.names,"theta0")
-
+    
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
   }
   
-}
-
-generate.model.ests <- function(model.string, data.list, params ,n.chains =3, n.iter = 25000, thin = 10){
-  
-  jags.mod <- jags.model(textConnection(model.string), 
-                         data = data.list, n.chains = n.chains, n.adapt = 10000,quiet = T)
-  
-  samps <- coda.samples(jags.mod, params, n.iter = n.iter, thin = 10, progress.bar = "none")
-  #as of right now the estimate is a mean.
-  bayes.est <- summary(samps)$statistics[,1]
-  return(bayes.est)
 }
 
 extract.unbiased <- function(datalist){
@@ -314,9 +304,22 @@ extract.unbiased <- function(datalist){
   return(new.list)
 }
 
+get.mean <- function(mcmc.obj){
+  return(summary(mcmc.obj)$statistics[,1][5])
+}
+
+dcoptions("verbose"=F)#mute the outpute
 
 
-NN <- 300
+#start parallel
+cl <- makePSOCKcluster(3)
+
+clusterEvalQ(cl, library(dclone))
+load.module("lecuyer")
+parLoadModule(cl,"lecuyer")
+
+
+NN <- 500
 set.seed(11947194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
@@ -331,16 +334,17 @@ colnames(only.unbiased) <- c("const x const","const x linear", "const x walk",
 
 
 
-#t1 <- Sys.time()
+t1 <- Sys.time()
+
 for(j in 1:NN){
   
   data.const.phi <- generate.dataset(phi = 'constant')
   data.linear.phi <- generate.dataset(phi = 'linear')
   data.walk.phi <- generate.dataset(phi = 'walk')
   
-  pos.rate.const <- data.const.phi$params["theta5"]
-  pos.rate.linear <- data.linear.phi$params["theta5"]
-  pos.rate.walk <- data.walk.phi$params["theta5"]
+  pos.rate.const <- data.const.phi$params[grep("theta5",names(data.const.phi$params))]
+  pos.rate.linear <- data.linear.phi$params[grep("theta5",names(data.linear.phi$params))]
+  pos.rate.walk <- data.walk.phi$params[grep("theta5",names(data.walk.phi$params))]
   
   unbiased.const.phi <- extract.unbiased(data.const.phi)
   unbiased.linear.phi <- extract.unbiased(data.linear.phi)
@@ -350,68 +354,86 @@ for(j in 1:NN){
   
   if(j %% 10 ==0) print(j)
   
-  const.const <- generate.model.ests(model.string = mod.constant.phi, data.list = data.const.phi[-8], params = "positiverate")
-  error[j,"const x const"] <- pos.rate.const - const.const[5]
+  const.const <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.const.phi,
+                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j,"const x const"] <- pos.rate.const - get.mean(const.const)
   
-  const.linear <- generate.model.ests(model.string = mod.linear.phi, data.list = data.const.phi[-8], params = "positiverate")
-  error[j, "const x linear"] <- pos.rate.const - const.linear[5]
+  const.linear <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.linear.phi,
+                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "const x linear"] <- pos.rate.const - get.mean(const.linear)
   
-  const.walk <- generate.model.ests(model.string = mod.walk.phi, data.list = data.const.phi[-8], params = "positiverate")
-  error[j, "const x walk"] <-  pos.rate.const - const.walk[5]
+  const.walk <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.walk.phi,
+                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "const x walk"] <- pos.rate.const - get.mean(const.walk)
   
-  linear.const <- generate.model.ests(model.string = mod.constant.phi, data.list = data.linear.phi[-8], params = "positiverate")
-  error[j, "linear x const"] <- pos.rate.linear - linear.const[5]
+  linear.const <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.const.phi,
+                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "linear x const"] <- pos.rate.linear - get.mean(linear.const)
   
-  linear.linear <- generate.model.ests(model.string = mod.linear.phi, data.list = data.linear.phi[-8], params = "positiverate")
-  error[j, "linear x linear"] <-pos.rate.linear - linear.linear[5]
+  linear.linear <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.linear.phi,
+                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "linear x linear"] <- pos.rate.linear - get.mean(linear.linear)
   
-  linear.walk <- generate.model.ests(model.string = mod.walk.phi, data.list = data.linear.phi[-8], params = "positiverate")
-  error[j, "linear x walk"] <- pos.rate.linear - linear.walk[5]
+  linear.walk <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.walk.phi,
+                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "linear x walk"] <- pos.rate.linear - get.mean(linear.walk)
   
-  walk.const <- generate.model.ests(model.string = mod.constant.phi, data.list = data.walk.phi[-8], params = "positiverate")
-  error[j, "walk x const"] <- pos.rate.walk - walk.const[5]
+  walk.const <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.const.phi,
+                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "walk x const"] <- pos.rate.walk - get.mean(walk.const)
   
-  walk.linear <- generate.model.ests(model.string = mod.linear.phi, data.list = data.walk.phi[-8], params = "positiverate")
-  error[j, "walk x linear"] <- pos.rate.walk - walk.linear[5]
+  walk.linear <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.linear.phi,
+                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "walk x linear"] <- pos.rate.walk - get.mean(walk.linear)
   
-  walk.walk <- generate.model.ests(model.string = mod.walk.phi, data.list = data.walk.phi[-8], params = "positiverate")
-  error[j, "walk x walk"] <- pos.rate.walk - walk.walk[5]
+  walk.walk <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.walk.phi,
+                           n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  error[j, "walk x walk"] <- pos.rate.walk - get.mean(walk.walk)
   
   #one unbiased survey only.
   #data x model
   
-  unb.const.const <- generate.model.ests(model.string = mod.constant.phi, data.list = unbiased.const.phi, params = "positiverate")
-  only.unbiased[j, "const x const"] <- pos.rate.const - unb.const.const[5]
+  unb.const.const <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
+                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "const x const"] <- pos.rate.const - get.mean(unb.const.const)
   
-  unb.const.linear <- generate.model.ests(model.string = mod.linear.phi, data.list = unbiased.const.phi, params = "positiverate")
-  only.unbiased[j, "const x linear"] <- pos.rate.const - unb.const.linear[5]
+  unb.const.linear <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.linear.phi,
+                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "const x linear"] <- pos.rate.const - get.mean(unb.const.linear)
   
-  unb.const.walk <- generate.model.ests(model.string = mod.walk.phi, data.list = unbiased.const.phi, params = "positiverate")
-  only.unbiased[j, "const x walk"] <- pos.rate.const - unb.const.walk[5]
+  unb.const.walk <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.walk.phi,
+                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "const x walk"] <- pos.rate.const - get.mean(unb.const.walk)
   
-  unb.linear.const <- generate.model.ests(model.string = mod.constant.phi, data.list = unbiased.linear.phi, params = "positiverate")
-  only.unbiased[j, "linear x const"] <- pos.rate.linear - unb.linear.const[5]
+  unb.linear.const <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
+                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "linear x const"] <- pos.rate.linear - get.mean(unb.linear.const)
   
-  unb.linear.linear <- generate.model.ests(model.string = mod.linear.phi, data.list = unbiased.linear.phi, params = "positiverate")
-  only.unbiased[j, "linear x linear"] <- pos.rate.linear - unb.linear.linear[5]
+  unb.linear.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.linear.phi,
+                                   n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "linear x linear"] <- pos.rate.linear - get.mean(unb.linear.linear)
   
-  unb.linear.walk <- generate.model.ests(model.string = mod.walk.phi, data.list = unbiased.linear.phi, params = "positiverate")
-  only.unbiased[j, "linear x walk"] <- pos.rate.linear - unb.linear.walk[5]
+  unb.linear.walk <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.walk.phi,
+                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "linear x walk"] <- pos.rate.linear - get.mean(unb.linear.walk)
   
-  unb.walk.const <- generate.model.ests(model.string = mod.constant.phi, data.list = unbiased.walk.phi, params = "positiverate")
-  only.unbiased[j, "walk x const"] <- pos.rate.walk - unb.walk.const[5]
+  unb.walk.const <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
+                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "walk x const"] <- pos.rate.walk - get.mean(unb.walk.const)
   
-  unb.walk.linear <- generate.model.ests(model.string = mod.linear.phi, data.list = unbiased.walk.phi, params = "positiverate")
-  only.unbiased[j, "walk x linear"] <- pos.rate.walk - unb.walk.linear[5]
+  unb.walk.linear <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.linear.phi,
+                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "walk x linear"] <- pos.rate.walk - get.mean(unb.walk.linear)
   
-  unb.walk.walk <- generate.model.ests(model.string = mod.walk.phi, data.list = unbiased.walk.phi, params = "positiverate")
-  only.unbiased[j, "walk x walk"] <- pos.rate.walk - unb.walk.walk[5]
+  unb.walk.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.walk.phi,
+                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+  only.unbiased[j, "walk x walk"] <- pos.rate.walk - get.mean(unb.walk.walk)
   
   
 }
 
-result.RMSE <- apply(error,2,function(x){sqrt(mean((100*x)^2))})
 
+result.RMSE <- apply(error,2,function(x){sqrt(mean((100*x)^2))})
 result.RMSE.unb <- apply(only.unbiased,2,function(x){sqrt(mean((100*x)^2))})
 
 
@@ -427,65 +449,3 @@ ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)
 
 
 
-
-#SAVE results?
-write.csv(results.plot,"Results/RMSE_with_bias.csv",row.names = T)
-write.csv(results.plot.unb,"Results/RMSE_only_unbiased.csv",row.names = T)
-write.csv(error,"Results/RMSE_total.csv",row.names = T)
-
-
-
-#try parallel
-
-cl <- makePSOCKcluster(3)
-
-tmp <- clusterEvalQ(cl, library(dclone))
-#parLoadModule(cl, "glm")
-oad.module("lecuyer")
-parLoadModule(cl,"lecuyer")
-
-data.const.phi <- generate.dataset(phi = 'constant')
-
-model <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:Ivec[1]){
-		phi[1,i] <- 1	}
-
-for (k in 2:K){
-	for (i in 1:Ivec[k]){
-		phi[k,i] <- exp(gamma0[k])
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/0.1)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
-
-for (k in 1:K){
-	for (i in 1:Ivec[k]){
-		
-		Y[k,i] ~ dhyper(P[times[k,i]], N-P[times[k,i]], smalln[k,i], phi[k,i]);
-	}
-}
-
-#priors
-theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, 1/10)T(0,);
-
-for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1);
-}
-}')
-
-res <- jags.parfit(cl, data.const.phi[-8], "positiverate", model,
-            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
