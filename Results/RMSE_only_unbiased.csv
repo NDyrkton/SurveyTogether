@@ -1,10 +1,10 @@
 "","data","model","RMSE"
-"const x const","const","const.1",6.03394405258281
-"const x linear","const","linear.1",6.04397451371948
-"const x walk","const","walk.1",6.0188065383985
-"linear x const","linear","const.1",5.98481584358367
-"linear x linear","linear","linear.1",5.99520603537989
-"linear x walk","linear","walk.1",5.98461110297042
-"walk x const","walk","const.1",5.93394833564388
-"walk x linear","walk","linear.1",5.92299315647977
-"walk x walk","walk","walk.1",5.92003386734748
+"const x const","const","const.1",3.99932601899606
+"const x linear","const","linear.1",4.01161561130421
+"const x walk","const","walk.1",4.0069329810502
+"linear x const","linear","const.1",4.2408484839666
+"linear x linear","linear","linear.1",4.24232541581392
+"linear x walk","linear","walk.1",4.24992335753094
+"walk x const","walk","const.1",4.12608562492999
+"walk x linear","walk","linear.1",4.13599999724702
+"walk x walk","walk","walk.1",4.14012429630997

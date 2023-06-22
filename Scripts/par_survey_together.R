@@ -25,10 +25,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -45,7 +45,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, pow(1/10,-2))T(0,);
+rho ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -66,10 +66,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -86,11 +86,11 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, pow(1/10,-2))T(0,);
+rho ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, pow(0.1,-2));
+	gamma1[k] ~ dnorm(0, 1/0.01);
 }
 }')
 
@@ -106,21 +106,21 @@ for (i in 1:Ivec[1]){
 
 for (k in 2:K){
 
-  gamma[k,1] ~ dnorm(gamma0[k],pow(0.1,-2))
+  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
   phi[k,1] <- exp(gamma[k,1])
   
 	for (t in 2:T){
-	  gamma[k,t] ~ dnorm(gamma[k,t-1], 1/pi)
+	  gamma[k,t] ~ dnorm(gamma[k,t-1], pow(pi,-2))
 	  phi[k,t] <- exp(gamma[k,t])
 	  
 	}
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -137,8 +137,8 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, pow(1/10,-2))T(0,);
-pi ~ dnorm(0, pow(1/10,-2))T(0,);
+rho ~ dnorm(0, 1/0.01)T(0,);
+pi ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -164,7 +164,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/10))
+  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
   theta0 <- rnorm(1,mean =0, sd = 1)
   
   if(phi == "constant"){
@@ -174,12 +174,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     phi <- exp(gamma0)
     
     
-    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(1/10))
+    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = 1/10)
     theta_t[1] <- inv.logit(logit_theta_t[1])
     
     for(i in 2:length(t)){
       
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = sqrt(rho))
+      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = rho)
       theta_t[i] <- inv.logit(logit_theta_t[i])
       
     }
@@ -194,10 +194,10 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       }
     }
     
-    parameters <-  c(gamma0,theta_t, theta0)
+    parameters <-  c(gamma0,rho,theta_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,"rho",theta.names,"theta0")
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
     
@@ -205,13 +205,13 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     phi_kt <- matrix(NA,nrow =K,ncol = length(t))
     #priors
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.1),K-1)))
+    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(0.1,K-1)))
     
-    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(1/10))
+    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = 1/10)
     theta_t[1] <- inv.logit(logit_theta_t[1])
     
     for(i in 2:length(t)){
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = sqrt(rho))
+      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = rho)
       theta_t[i] <- inv.logit(logit_theta_t[i])
       
     }
@@ -229,11 +229,11 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       
     }  
     
-    parameters <-  c(gamma_0k,gamma_1k,theta_t, theta0)
+    parameters <-  c(gamma_0k,gamma_1k,rho,theta_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma1.names <- paste(rep("gamma1",K),1:K,sep = "")
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma1.names,theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,gamma1.names,"rho",theta.names,"theta0")
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln,params = parameters))
     
@@ -246,25 +246,25 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     gamma_kt[1,] <- rep(0,length(t))
     #prior
     
-    pi <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/10))
+    pi <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
     
     
     
-    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(1/10))
+    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = 1/10)
     theta_t[1] <- inv.logit(logit_theta_t[1])
     #first study is unbiased 
     
     phi_kt[1,] <- exp(gamma_kt[1,])
-    gamma_kt[2:K,1] <- rnorm(K-1,mean = gamma_0k[2:K],sd = sqrt(1/10))
+    gamma_kt[2:K,1] <- rnorm(K-1,mean = gamma_0k[2:K],sd = 1/10)
     phi_kt[2:K,1] <- exp(gamma_kt[2:K,1])
     
     for(i in 2:length(t)){
       
-      gamma_kt[2:K,i] <- rnorm(K-1, mean = gamma_kt[2:K,i-1],sd = sqrt(c(pi,pi)))
+      gamma_kt[2:K,i] <- rnorm(K-1, mean = gamma_kt[2:K,i-1],sd = c(pi,pi))
       phi_kt[2:K,i] <- exp(gamma_kt[2:K,i])
       
       
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = sqrt(rho))
+      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = rho)
       theta_t[i] <- inv.logit(logit_theta_t[i])
       
     }
@@ -280,12 +280,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
         Y[k,i] <- Y_kt
       }
     }
-    parameters <- c(gamma_0k,as.numeric(gamma_kt),theta_t,theta0)
+    parameters <- c(gamma_0k,as.numeric(gamma_kt),rho,pi,theta_t,theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma_kt.c <- expand.grid(1:K,1:length(t))
     gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma_kt.names,theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,gamma_kt.names,"rho","pi",theta.names,"theta0")
     
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
@@ -320,7 +320,7 @@ parLoadModule(cl,"lecuyer")
 
 
 NN <- 500
-set.seed(11947194)
+set.seed(162194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
 colnames(error) <- c("const x const","const x linear", "const x walk",
