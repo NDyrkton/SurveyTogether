@@ -25,10 +25,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -45,7 +45,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, pow(1/10,-2))T(0,);
+rho ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -66,10 +66,10 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -86,11 +86,11 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, pow(1/10,-2))T(0,);
+rho ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, pow(0.1,-2));
+	gamma1[k] ~ dnorm(0, 1/0.01);
 }
 }')
 
@@ -106,7 +106,7 @@ for (i in 1:Ivec[1]){
 
 for (k in 2:K){
 
-  gamma[k,1] ~ dnorm(gamma0[k],pow(0.1,-2))
+  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
   phi[k,1] <- exp(gamma[k,1])
   
 	for (t in 2:T){
@@ -117,7 +117,7 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,pow(0.1,-2))
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
@@ -137,8 +137,8 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, pow(1/10,-2))T(0,);
-pi ~ dnorm(0, pow(1/10,-2))T(0,);
+rho ~ dnorm(0, 1/0.01)T(0,);
+pi ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -194,10 +194,10 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       }
     }
     
-    parameters <-  c(gamma0,theta_t, theta0)
+    parameters <-  c(gamma0,rho,theta_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,"rho",theta.names,"theta0")
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
     
@@ -229,11 +229,11 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
       
     }  
     
-    parameters <-  c(gamma_0k,gamma_1k,theta_t, theta0)
+    parameters <-  c(gamma_0k,gamma_1k,rho,theta_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma1.names <- paste(rep("gamma1",K),1:K,sep = "")
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma1.names,theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,gamma1.names,"rho",theta.names,"theta0")
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln,params = parameters))
     
@@ -280,12 +280,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
         Y[k,i] <- Y_kt
       }
     }
-    parameters <- c(gamma_0k,as.numeric(gamma_kt),theta_t,theta0)
+    parameters <- c(gamma_0k,as.numeric(gamma_kt),rho,pi,theta_t,theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma_kt.c <- expand.grid(1:K,1:length(t))
     gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma_kt.names,theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,gamma_kt.names,"rho","pi",theta.names,"theta0")
     
     
     return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
@@ -308,7 +308,7 @@ get.mean <- function(mcmc.obj){
   return(summary(mcmc.obj)$statistics[,1][5])
 }
 
-dcoptions("verbose"=F)#mute the outpute
+dcoptions("verbose"=F)#mute the output
 
 
 #start parallel
@@ -319,8 +319,8 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 250
-set.seed(11947194)
+NN <- 500
+set.seed(162194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
 colnames(error) <- c("const x const","const x linear", "const x walk",
@@ -355,78 +355,78 @@ for(j in 1:NN){
   if(j %% 10 ==0) print(j)
   
   const.const <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.const.phi,
-                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j,"const x const"] <- pos.rate.const - get.mean(const.const)
   
   const.linear <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.linear.phi,
-                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "const x linear"] <- pos.rate.const - get.mean(const.linear)
   
   const.walk <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.walk.phi,
-                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "const x walk"] <- pos.rate.const - get.mean(const.walk)
   
   linear.const <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.const.phi,
-                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "linear x const"] <- pos.rate.linear - get.mean(linear.const)
   
   linear.linear <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.linear.phi,
-                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "linear x linear"] <- pos.rate.linear - get.mean(linear.linear)
   
   linear.walk <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.walk.phi,
-                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "linear x walk"] <- pos.rate.linear - get.mean(linear.walk)
   
   walk.const <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.const.phi,
-                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "walk x const"] <- pos.rate.walk - get.mean(walk.const)
   
   walk.linear <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.linear.phi,
-                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "walk x linear"] <- pos.rate.walk - get.mean(walk.linear)
   
   walk.walk <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.walk.phi,
-                           n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                           n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   error[j, "walk x walk"] <- pos.rate.walk - get.mean(walk.walk)
   
   #one unbiased survey only.
   #data x model
   
   unb.const.const <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
-                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "const x const"] <- pos.rate.const - get.mean(unb.const.const)
   
   unb.const.linear <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.linear.phi,
-                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "const x linear"] <- pos.rate.const - get.mean(unb.const.linear)
   
   unb.const.walk <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.walk.phi,
-                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "const x walk"] <- pos.rate.const - get.mean(unb.const.walk)
   
   unb.linear.const <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
-                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "linear x const"] <- pos.rate.linear - get.mean(unb.linear.const)
   
   unb.linear.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.linear.phi,
-                                   n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                   n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "linear x linear"] <- pos.rate.linear - get.mean(unb.linear.linear)
   
   unb.linear.walk <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.walk.phi,
-                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "linear x walk"] <- pos.rate.linear - get.mean(unb.linear.walk)
   
   unb.walk.const <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
-                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "walk x const"] <- pos.rate.walk - get.mean(unb.walk.const)
   
   unb.walk.linear <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.linear.phi,
-                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "walk x linear"] <- pos.rate.walk - get.mean(unb.walk.linear)
   
   unb.walk.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.walk.phi,
-                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 50000)
+                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
   only.unbiased[j, "walk x walk"] <- pos.rate.walk - get.mean(unb.walk.walk)
   
   
