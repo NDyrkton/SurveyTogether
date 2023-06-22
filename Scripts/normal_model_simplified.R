@@ -41,7 +41,7 @@ for (k in 1:K){
 
 #priors
 mu0 ~ dnorm(75, pow(5,-2));
-rho ~ dgamma(2,1/0.05)
+rho ~ dgamma(2,5)
 
 gamma0[1]~ dnorm(0,1)
 for (k in 2:K){
@@ -77,7 +77,7 @@ for (k in 1:K){
 
 #priors
 mu0 ~ dnorm(75, pow(5,-2));
-rho ~ dgamma(2,1/0.05)
+rho ~ dgamma(2,5)
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(5, pow(3,-2));
@@ -122,7 +122,7 @@ for (k in 1:K){
 
 #priors
 mu0 ~ dnorm(75, pow(5,-2))
-rho ~ dgamma(2,1/0.05)
+rho ~ dgamma(2,5)
 pi ~ dgamma(2,1/0.5)
 
 
@@ -136,11 +136,10 @@ for (k in 2:K){
 
 
 gen.norm.dat <- function(N= 10000, K =3, ts = c(1:5), ns = rep(100,length(ts)), phi = "constant"){
-  sigma <- 5
   mu0 <- rnorm(1,mean = 75, sd = 5)
   len <- length(ts)
   mu <- numeric(len)
-  rho <-  rgamma(1,shape = 2,scale = 0.05) 
+  rho <-  rgamma(1,shape = 2,rate =5) 
   Y <- matrix(NA,nrow = K,ncol = len)
   times <- t(matrix(rep(ts,K),ncol = K))
   smalln <- t(matrix(rep(ns,K),ncol = K))
@@ -200,7 +199,7 @@ gen.norm.dat <- function(N= 10000, K =3, ts = c(1:5), ns = rep(100,length(ts)), 
     
   }else if(phi == "walk"){
     
-    phi0 <- c(0, rnorm(K-1,mean = 5, sd = 2))
+    phi0 <- c(0, rnorm(K-1,mean = 5, sd = 3))
     phi_kt <- matrix(NA,nrow = K,ncol = len)
     phi_kt[1,] <- 0
     pi <- rgamma(1,shape = 2,scale = 0.5)
@@ -280,7 +279,7 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 100
+NN <- 500
 set.seed(11947194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
@@ -295,6 +294,14 @@ colnames(only.unbiased) <- c("const x const","const x linear", "const x walk",
 
 
 dcoptions("verbose"=F)#mute the output
+
+
+
+
+
+
+
+
 
 for(j in 1:NN){
   
@@ -393,8 +400,8 @@ for(j in 1:NN){
 }
 
 
-result.RMSE <- apply(error,2,function(x){sqrt(mean((100*x)^2))})
-result.RMSE.unb <- apply(only.unbiased,2,function(x){sqrt(mean((100*x)^2))})
+result.RMSE <- apply(error,2,function(x){sqrt(mean((x)^2))})
+result.RMSE.unb <- apply(only.unbiased,2,function(x){sqrt(mean((x)^2))})
 
 
 
@@ -406,6 +413,16 @@ ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)
   labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 500 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
+
+
+
+
+data.const.phi <- gen.norm.dat(phi = 'constant')
+
+const.const <- jags.parfit(cl, data.const.phi[-8], c("mu","gamma","rho"), mod.const.phi,
+                           n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+data.const.phi$params
+summary(const.const)$statistics[,1]
 
 
 
