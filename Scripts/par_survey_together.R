@@ -15,12 +15,12 @@ mod.const.phi<- custommodel('
 model{	
 #likelihood
 
-for (i in 1:Ivec[1]){
-		phi[1,i] <- 1	}
+for (t in 1:T){
+		phi[1,t] <- 1	}
 
 for (k in 2:K){
-	for (i in 1:Ivec[k]){
-		phi[k,i] <- exp(gamma0[k])
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k])
 	}
 }
 	
@@ -37,9 +37,9 @@ for(t in 1:T){
 }
 
 for (k in 1:K){
-	for (i in 1:Ivec[k]){
+	for (t in 1:T){
 		
-		Y[k,i] ~ dhyper(P[times[k,i]], N-P[times[k,i]], smalln[k,i], phi[k,i]);
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
 	}
 }
 
@@ -56,12 +56,12 @@ mod.linear.phi <- custommodel('
 model{	
 #likelihood
 
-for (i in 1:Ivec[1]){
-		phi[1,i] <- 1	}
+for (t in 1:T){
+		phi[1,t] <- 1	}
 
 for (k in 2:K){
-	for (i in 1:Ivec[k]){
-		phi[k,i] <- exp(gamma0[k] + gamma1[k]*times[k,i])
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
 	}
 }
 	
@@ -78,9 +78,9 @@ for(t in 1:T){
 }
 
 for (k in 1:K){
-	for (i in 1:Ivec[k]){
+	for (t in 1:T){
 		
-		Y[k,i] ~ dhyper(P[times[k,i]], N-P[times[k,i]], smalln[k,i], phi[k,i]);
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
 	}
 }
 
@@ -98,9 +98,8 @@ mod.walk.phi <- custommodel('
 model{	
 #likelihood
 
-for (i in 1:Ivec[1]){
+for (i in 1:T){
 		phi[1,i] <- 1	
-		gamma[1,i] <- 0
 }
 
 
@@ -129,9 +128,9 @@ for(t in 1:T){
 }
 
 for (k in 1:K){
-	for (i in 1:Ivec[k]){
+	for (t in 1:T){
 		
-		Y[k,i] ~ dhyper(P[times[k,i]], N-P[times[k,i]], smalln[k,i], phi[k,i]);
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
 	}
 }
 
@@ -157,7 +156,6 @@ inv.logit <- function(x){
 #try with t = 5
 generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
-  Ivec <- rep(3,K)
   smalln <- t(matrix(rep(ns,K),ncol = K))
   theta_t <- numeric(length(t))
   logit_theta_t <- numeric(length(t))
@@ -199,7 +197,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
     names(parameters) <-  c(gamma0.names,"rho",theta.names,"theta0")
     
-    return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
+    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
     
   }else if(phi == "linear"){
     phi_kt <- matrix(NA,nrow =K,ncol = length(t))
@@ -235,7 +233,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
     names(parameters) <-  c(gamma0.names,gamma1.names,"rho",theta.names,"theta0")
     
-    return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln,params = parameters))
+    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln,params = parameters))
     
   }else if(phi == "walk"){
     
@@ -288,7 +286,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     names(parameters) <-  c(gamma0.names,gamma_kt.names,"rho","pi",theta.names,"theta0")
     
     
-    return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
+    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
   }
   
 }
@@ -297,7 +295,7 @@ extract.unbiased <- function(datalist){
   K = 1
   Ivec = 3
   T <- datalist$T
-  new.list <- list(K = K, Ivec = Ivec, 
+  new.list <- list(K = K, 
                    times = matrix(datalist$times[1,],ncol = T), N = datalist$N, T = T,
                    Y = matrix(datalist$Y[1,],ncol = T), smalln = matrix(datalist$smalln[1,],ncol = T))
   
@@ -319,7 +317,7 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 500
+NN <- 5
 set.seed(162194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
@@ -443,7 +441,7 @@ results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c(
 results.plot.unb <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const.1","linear.1","walk.1"),3),RMSE = result.RMSE.unb)
 
 ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = "RMSE of NN = 500 in 3x3 design, 5 timepoints") + geom_point(data = results.plot.unb)+
+  labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 5 timepoints"))_ + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
  
