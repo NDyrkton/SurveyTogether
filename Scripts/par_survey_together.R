@@ -154,7 +154,7 @@ inv.logit <- function(x){
 
 
 #try with t = 5
-generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
+generate.dataset <- function(N= 10000, K =3, t = c(1:7), ns = rep(100,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
   smalln <- t(matrix(rep(ns,K),ncol = K))
   theta_t <- numeric(length(t))
@@ -293,7 +293,6 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
 
 extract.unbiased <- function(datalist){
   K = 1
-  Ivec = 3
   T <- datalist$T
   new.list <- list(K = K, 
                    times = matrix(datalist$times[1,],ncol = T), N = datalist$N, T = T,
@@ -303,7 +302,7 @@ extract.unbiased <- function(datalist){
 }
 
 get.mean <- function(mcmc.obj){
-  return(summary(mcmc.obj)$statistics[,1][5])
+  return(summary(mcmc.obj)$statistics[,1][7])
 }
 
 dcoptions("verbose"=F)#mute the output
@@ -317,8 +316,8 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 5
-set.seed(162194)
+NN <- 200
+set.seed(23194)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
 colnames(error) <- c("const x const","const x linear", "const x walk",
@@ -353,78 +352,78 @@ for(j in 1:NN){
   if(j %% 10 ==0) print(j)
   
   const.const <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.const.phi,
-                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                             n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j,"const x const"] <- pos.rate.const - get.mean(const.const)
   
   const.linear <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.linear.phi,
-                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                              n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "const x linear"] <- pos.rate.const - get.mean(const.linear)
   
   const.walk <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.walk.phi,
-                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                            n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "const x walk"] <- pos.rate.const - get.mean(const.walk)
   
   linear.const <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.const.phi,
-                              n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                              n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "linear x const"] <- pos.rate.linear - get.mean(linear.const)
   
   linear.linear <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.linear.phi,
-                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                               n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "linear x linear"] <- pos.rate.linear - get.mean(linear.linear)
   
   linear.walk <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.walk.phi,
-                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                             n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "linear x walk"] <- pos.rate.linear - get.mean(linear.walk)
   
   walk.const <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.const.phi,
-                            n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                            n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "walk x const"] <- pos.rate.walk - get.mean(walk.const)
   
   walk.linear <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.linear.phi,
-                             n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                             n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "walk x linear"] <- pos.rate.walk - get.mean(walk.linear)
   
   walk.walk <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.walk.phi,
-                           n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                           n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   error[j, "walk x walk"] <- pos.rate.walk - get.mean(walk.walk)
   
   #one unbiased survey only.
   #data x model
   
   unb.const.const <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
-                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                 n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "const x const"] <- pos.rate.const - get.mean(unb.const.const)
   
   unb.const.linear <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.linear.phi,
-                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                  n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "const x linear"] <- pos.rate.const - get.mean(unb.const.linear)
   
   unb.const.walk <- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.walk.phi,
-                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "const x walk"] <- pos.rate.const - get.mean(unb.const.walk)
   
   unb.linear.const <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
-                                  n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                  n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "linear x const"] <- pos.rate.linear - get.mean(unb.linear.const)
   
   unb.linear.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.linear.phi,
-                                   n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                   n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "linear x linear"] <- pos.rate.linear - get.mean(unb.linear.linear)
   
   unb.linear.walk <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.walk.phi,
-                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                 n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "linear x walk"] <- pos.rate.linear - get.mean(unb.linear.walk)
   
   unb.walk.const <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
-                                n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "walk x const"] <- pos.rate.walk - get.mean(unb.walk.const)
   
   unb.walk.linear <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.linear.phi,
-                                 n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                                 n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "walk x linear"] <- pos.rate.walk - get.mean(unb.walk.linear)
   
   unb.walk.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.walk.phi,
-                               n.chains=3,n.adapt = 10000,thin = 10, n.iter = 25000)
+                               n.chains=3,n.adapt = 5000,thin = 10, n.iter = 25000)
   only.unbiased[j, "walk x walk"] <- pos.rate.walk - get.mean(unb.walk.walk)
   
   
@@ -441,7 +440,7 @@ results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c(
 results.plot.unb <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const.1","linear.1","walk.1"),3),RMSE = result.RMSE.unb)
 
 ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 5 timepoints"))_ + geom_point(data = results.plot.unb)+
+  labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 6 timepoints")) + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
  
