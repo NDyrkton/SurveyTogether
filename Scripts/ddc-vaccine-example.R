@@ -9,6 +9,8 @@ library(dclone)
 library(dplyr)
 library(forecast)
 
+source("Scripts/helperfunctions.R")
+
 fill.dates <- function(ref.date, vec.date, vec){
   
   return.vec <- numeric(length(ref.date))
@@ -84,7 +86,7 @@ K = 3
 times <- t(matrix(rep(t,K),ncol = K))
 
 
-data.list <- list(K = 3, T = 2, N = N, times = times[,1:2], Y = Y[,12:13], smalln = n[,12:13])
+data.list <- list(K = 3, T = 20, N = N, times = times, Y = Y, smalln = n)
 
 
 
@@ -95,7 +97,7 @@ model{
 
 for (k in 1:K){
 	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k])
+		phi[k,t] <- gamma0[k]
 	}
 }
 	
@@ -119,11 +121,11 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, 1/0.01)T(0,);
+theta0 ~ dnorm(0, 1/0.001);
+rho ~ dnorm(0, 1/0.001)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 100);
+	gamma0[k] ~ dnorm(0, 1/0.05);
 }
 }')
 
@@ -138,7 +140,7 @@ for (k in 1:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/10)
+logitpositiverate[1] ~ dnorm(theta0,1/0.00001)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
@@ -157,12 +159,12 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 1/10);
-rho ~ dnorm(0, 1/5)T(0,);
+theta0 ~ dnorm(0, 1/0.00001);
+rho ~ dnorm(0, 1/0.00001)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1/10);
-	gamma1[k] ~ dnorm(0, 1/5);
+	gamma0[k] ~ dnorm(0, 1/0.00005);
+	gamma1[k] ~ dnorm(0, 1/0.00001);
 }
 }')
 
@@ -176,10 +178,26 @@ parLoadModule(cl,"lecuyer")
 
 
 
-line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
-            n.chains=4,n.adapt = 10000,thin = 10, n.iter = 100000)
+
+line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.const.phi,
+            n.chains=4,n.adapt = 10000,thin = 10, n.iter = 25000)
+
+#provides errors
 
 
+
+###fix
+
+data.list2 <- generate.dataset(N =   2552003,t = 1:20, ns = rep(25000,20),phi= "linear")
+
+data.list2$Y[2,c(3,5,10,12,18)] <- NA
+data.list2$Y[3,c(1,2,8,11,20)] <- NA
+
+
+data.list.3 <- generate.dataset(phi= "linear")
+
+line.linear2 <- jags.parfit(cl, data.list2, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
+                           n.chains=4,n.adapt = 10000,thin = 10, n.iter = 10000)
 
 
 
