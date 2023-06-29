@@ -153,8 +153,8 @@ inv.logit <- function(x){
 }
 
 
-#try with t = 5
-generate.dataset <- function(N= 10000, K =3, t = c(1:7), ns = rep(100,length(t)), phi = "constant"){
+#try with t = 7
+generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
   smalln <- t(matrix(rep(ns,K),ncol = K))
   theta_t <- numeric(length(t))
@@ -302,7 +302,7 @@ extract.unbiased <- function(datalist){
 }
 
 get.mean <- function(mcmc.obj){
-  return(summary(mcmc.obj)$statistics[,1][7])
+  return(summary(mcmc.obj)$statistics[,1][6])
 }
 
 dcoptions("verbose"=F)#mute the output
@@ -316,8 +316,8 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 200
-set.seed(23194)
+NN <- 250
+set.seed(12345)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
 colnames(error) <- c("const x const","const x linear", "const x walk",
@@ -331,17 +331,15 @@ colnames(only.unbiased) <- c("const x const","const x linear", "const x walk",
 
 
 
-#t1 <- Sys.time()
-
 for(j in 1:NN){
   
-  data.const.phi <- generate.dataset(phi = 'constant')
-  data.linear.phi <- generate.dataset(phi = 'linear')
-  data.walk.phi <- generate.dataset(phi = 'walk')
+  data.const.phi <- generate.dataset(phi = 'constant',t = 1:6)
+  data.linear.phi <- generate.dataset(phi = 'linear', t = 1:6)
+  data.walk.phi <- generate.dataset(phi = 'walk', t= 1:6)
   
-  pos.rate.const <- data.const.phi$params[grep("theta5",names(data.const.phi$params))]
-  pos.rate.linear <- data.linear.phi$params[grep("theta5",names(data.linear.phi$params))]
-  pos.rate.walk <- data.walk.phi$params[grep("theta5",names(data.walk.phi$params))]
+  pos.rate.const <- data.const.phi$params[grep("theta6",names(data.const.phi$params))]
+  pos.rate.linear <- data.linear.phi$params[grep("theta6",names(data.linear.phi$params))]
+  pos.rate.walk <- data.walk.phi$params[grep("theta6",names(data.walk.phi$params))]
   
   unbiased.const.phi <- extract.unbiased(data.const.phi)
   unbiased.linear.phi <- extract.unbiased(data.linear.phi)
@@ -444,6 +442,10 @@ ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
  
+
+
+
+
 
 
 write.csv(results.plot,"Results/RMSE_with_bias.csv",row.names = T)
