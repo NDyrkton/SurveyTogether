@@ -302,7 +302,7 @@ extract.unbiased <- function(datalist){
 }
 
 get.mean <- function(mcmc.obj){
-  return(summary(mcmc.obj)$statistics[,1][6])
+  return(summary(mcmc.obj)$statistics[,1][9])
 }
 
 dcoptions("verbose"=F)#mute the output
@@ -316,7 +316,7 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 250
+NN <- 25
 set.seed(12345)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
@@ -333,13 +333,13 @@ colnames(only.unbiased) <- c("const x const","const x linear", "const x walk",
 
 for(j in 1:NN){
   
-  data.const.phi <- generate.dataset(phi = 'constant',t = 1:6)
-  data.linear.phi <- generate.dataset(phi = 'linear', t = 1:6)
-  data.walk.phi <- generate.dataset(phi = 'walk', t= 1:6)
+  data.const.phi <- generate.dataset(phi = 'constant',t = 1:9)
+  data.linear.phi <- generate.dataset(phi = 'linear', t = 1:9)
+  data.walk.phi <- generate.dataset(phi = 'walk', t= 1:9)
   
-  pos.rate.const <- data.const.phi$params[grep("theta6",names(data.const.phi$params))]
-  pos.rate.linear <- data.linear.phi$params[grep("theta6",names(data.linear.phi$params))]
-  pos.rate.walk <- data.walk.phi$params[grep("theta6",names(data.walk.phi$params))]
+  pos.rate.const <- data.const.phi$params[grep("theta9",names(data.const.phi$params))]
+  pos.rate.linear <- data.linear.phi$params[grep("theta9",names(data.linear.phi$params))]
+  pos.rate.walk <- data.walk.phi$params[grep("theta9",names(data.walk.phi$params))]
   
   unbiased.const.phi <- extract.unbiased(data.const.phi)
   unbiased.linear.phi <- extract.unbiased(data.linear.phi)
@@ -438,14 +438,14 @@ results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c(
 results.plot.unb <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const.1","linear.1","walk.1"),3),RMSE = result.RMSE.unb)
 
 ggplot(data = results.plot, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 6 timepoints")) + geom_point(data = results.plot.unb)+
+  labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 9 timepoints")) + geom_point(data = results.plot.unb)+
   geom_line(data = results.plot.unb,linetype = "dashed",aes(colour = model,group=model)) + 
   scale_color_manual(values = c("const"="blue","const.1"="blue","linear" = "red","linear.1"="red","walk"="green","walk.1"="green"))
  
 
 
-
-
+#end parallel
+stopCluster(cl)
 
 
 write.csv(results.plot,"Results/RMSE_with_bias.csv",row.names = T)
