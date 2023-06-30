@@ -316,7 +316,7 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 25
+NN <- 250
 set.seed(12345)
 
 error <- matrix(NA,nrow = NN, ncol = 9)
