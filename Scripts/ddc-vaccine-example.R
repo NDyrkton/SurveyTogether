@@ -61,7 +61,7 @@ facebook.Y$end_date <- as.Date(facebook.Y$end_date)
 household_pulse.Y$end_date <- as.Date(household_pulse.Y$end_date)
 ipsos_axios.Y$end_date <- as.Date(ipsos_axios.Y$end_date)
 
-Y <- matrix(NA,nrow =4, ncol = nrow(facebook.Y))
+Y <- matrix(NA,nrow =3, ncol = nrow(facebook.Y))
 
 
 Y[1,] <-  facebook.Y$Y
@@ -87,6 +87,40 @@ times <- t(matrix(rep(t,K),ncol = K))
 
 
 data.list <- list(K = 3, T = 20, N = N, times = times, Y = Y, smalln = n)
+
+model0<- custommodel('
+model{	
+#likelihood
+
+for (i in 1:Ivec[1]){
+		phi[1,i] <- 1	}
+
+for (k in 2:K){
+	for (i in 1:Ivec[k]){
+		phi[k,i] <- exp(gamma0[k] + gamma1[k]*times[k,i]) 
+	}
+}
+
+for (k in 1:K){
+	for (i in 1:Ivec[k]){
+	
+		positiverate[k,i]	<- 
+		ilogit(theta0 + beta1*times[k,i])
+		
+		P[k,i] ~ dbin(positiverate[k,i], N)
+		Y[k,i] ~ dhyper(P[k,i], N-P[k,i], smalln[k,i], phi[k,i]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(0, 1/10);
+beta1 ~ dnorm(0, 1/10);
+for (k in 1:K){
+	gamma0[k] ~ dnorm(0, 1/2);
+	gamma1[k] ~ dnorm(0, 1/0.1);
+}
+}')
+
 
 
 
@@ -140,16 +174,14 @@ for (k in 1:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/10)
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
 for(t in 1:T){
-	#Pt[t] ~ dnorm(positiverate[t]*N, 1/ (positiverate[t]*(1-positiverate[t])*N))T(0,N);
-	#P[t] <- dround(Pt[t],0)
 	P[t] ~ dbin(positiverate[t], N)
 	
 
@@ -160,18 +192,17 @@ for (k in 1:K){
 	for (t in 1:T){
 	  
 		
-		Y[k,t] ~ dhyper(ifelse(P[times[k,t]]< Y[k,t], Y[k,t],P[times[k,t]]), N-(ifelse(P[times[k,t]]< Y[k,t], Y[k,t],P[times[k,t]])), smalln[k,t], phi[k,t]);
-		#we are getting Y> P[t] 
+		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
 	}
 }
 
 #priors
-theta0 ~ dnorm(10, 1/0.1);
-rho ~ dnorm(0, 1/10)T(0,);
+theta0 ~ dnorm(0, 1);
+rho ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(3, 1/0.001);
-	gamma1[k] ~ dnorm(0.1, 1/0.001);
+	gamma0[k] ~ dnorm(0, 1);
+	gamma1[k] ~ dnorm(0, 1/0.01);
 }
 }')
 
@@ -186,7 +217,7 @@ parLoadModule(cl,"lecuyer")
 
 
 
-line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.const.phi,
+line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
             n.chains=4,n.adapt = 10000,thin = 10, n.iter = 25000)
 
 #provides errors
@@ -195,17 +226,27 @@ line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rh
 
 ###fix
 
-data.list2 <- generate.dataset(N =   255200373,t = 1:20, ns = rep(25000,20),phi= "linear")
+data.list2 <- generate.dataset(N =   255200373,t = 1:20, ns = rep(250000,20),phi= "linear")
 
 data.list2$Y[2,c(3,5,10,12,18)] <- NA
 data.list2$Y[3,c(1,2,8,11,20)] <- NA
 
+plot.dat <- data.list2$params[7:26]
+
+plot(plot.dat)
+
+data.list2$Y/data.list2$smalln
+
+draws <- rbinom(100000,255200373,prob = plot.dat[1]+0.1)
+
+dhyper(data.list2$Y[1],max(draws),N-max(draws),25000)
 
 #data.list.3 <- generate.dataset(phi= "linear")
 
-line.linear2 <- jags.parfit(cl, data.list2, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
-                           n.chains=4,n.adapt = 1000,thin = 10, n.iter = 1000)
+line.linear2 <- jags.parfit(cl, data.list2[-8], c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
+                           n.chains=4,n.adapt = 10000,thin = 10, n.iter = 50000)
 
+summary(line.linear2)$statistics[,1]
 
-
+data.list2$params
 
