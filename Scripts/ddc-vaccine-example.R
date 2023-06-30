@@ -64,21 +64,21 @@ ipsos_axios.Y$end_date <- as.Date(ipsos_axios.Y$end_date)
 Y <- matrix(NA,nrow =3, ncol = nrow(facebook.Y))
 
 
-Y[1,] <-  facebook.Y$Y
+Y[3,] <-  facebook.Y$Y
 Y[2,] <- fill.dates(ref.date = facebook.Y$end_date, vec.date = household_pulse.Y$end_date, vec = household_pulse.Y$Y)
-Y[3,] <- fill.dates(ref.date = facebook.Y$end_date, vec.date = ipsos_axios.Y$end_date, vec = ipsos_axios.Y$Y)
+Y[1,] <- fill.dates(ref.date = facebook.Y$end_date, vec.date = ipsos_axios.Y$end_date, vec = ipsos_axios.Y$Y)
 
 n <- matrix(NA,nrow =3, ncol = nrow(facebook.Y))
 
-n[1,] <- facebook.Y$n 
+n[3,] <- facebook.Y$n 
 n[2,] <- fill.dates(ref.date = facebook.Y$end_date, vec.date = household_pulse.Y$end_date, vec = household_pulse.Y$n)
-n[3,] <- fill.dates(ref.date = facebook.Y$end_date, vec.date = ipsos_axios.Y$end_date, vec = ipsos_axios.Y$n)
+n[1,] <- fill.dates(ref.date = facebook.Y$end_date, vec.date = ipsos_axios.Y$end_date, vec = ipsos_axios.Y$n)
 
 
 #need n
 
 n[2,] <- round(na.interp(n[2,]))
-n[3,] <- round(na.interp(n[3,]))
+n[1,] <- round(na.interp(n[1,]))
 
 N <- 255200373
 t <- 1:20
@@ -88,50 +88,19 @@ times <- t(matrix(rep(t,K),ncol = K))
 
 data.list <- list(K = 3, T = 20, N = N, times = times, Y = Y, smalln = n)
 
-model0<- custommodel('
+
+mod.linear.phi.2 <- custommodel('
 model{	
 #likelihood
 
-for (i in 1:Ivec[1]){
-		phi[1,i] <- 1	}
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
 
 for (k in 2:K){
-	for (i in 1:Ivec[k]){
-		phi[k,i] <- exp(gamma0[k] + gamma1[k]*times[k,i]) 
-	}
-}
-
-for (k in 1:K){
-	for (i in 1:Ivec[k]){
-	
-		positiverate[k,i]	<- 
-		ilogit(theta0 + beta1*times[k,i])
-		
-		P[k,i] ~ dbin(positiverate[k,i], N)
-		Y[k,i] ~ dhyper(P[k,i], N-P[k,i], smalln[k,i], phi[k,i]);
-	}
-}
-
-#priors
-theta0 ~ dnorm(0, 1/10);
-beta1 ~ dnorm(0, 1/10);
-for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1/2);
-	gamma1[k] ~ dnorm(0, 1/0.1);
-}
-}')
-
-
-
-
-mod.const.phi<- custommodel('
-model{	
-#likelihood
-
-
-for (k in 1:K){
 	for (t in 1:T){
-		phi[k,t] <- gamma0[k]
+		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
 	}
 }
 	
@@ -139,7 +108,7 @@ for (k in 1:K){
 logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
+	logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -147,27 +116,37 @@ for(t in 1:T){
 	P[t] ~ dbin(positiverate[t], N)
 }
 
+
 for (k in 1:K){
 	for (t in 1:T){
-		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+	  
+		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
 	}
 }
 
 #priors
-theta0 ~ dnorm(0, 1/0.001);
-rho ~ dnorm(0, 1/0.001)T(0,);
+theta0 ~ dnorm(-2, 1);
+rho ~ dnorm(0, 1/5)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1/0.05);
+	gamma0[k] ~ dnorm(0, 1);
+	gamma1[k] ~ dnorm(0, 1/0.001);
 }
 }')
+
+
+
 
 mod.linear.phi <- custommodel('
 model{	
 #likelihood
 
-for (k in 1:K){
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
 	for (t in 1:T){
 		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
 	}
@@ -183,32 +162,136 @@ for(t in 2:T){
 
 for(t in 1:T){
 	P[t] ~ dbin(positiverate[t], N)
-	
-
 }
 
 
 for (k in 1:K){
 	for (t in 1:T){
 	  
+		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+rho ~ dnorm(0, 1/0.01)T(0,);
+
+for (k in 1:K){
+	gamma0[k] ~ dnorm(0, 1);
+	gamma1[k] ~ dnorm(0, 1/0.001);
+}
+}')
+
+
+mod.walk.phi <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
+
+  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
+  phi[k,1] <- exp(gamma[k,1])
+  
+	for (t in 2:T){
+	  gamma[k,t] ~ dnorm(gamma[k,t-1], pow(pi,-2))
+	  phi[k,t] <- exp(gamma[k,t])
+	  
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/0.001)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+for(t in 1:T){
+	P[t] ~ dbin(positiverate[t], N)
+}
+
+for (k in 1:K){
+	for (t in 1:T){
 		
 		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
 	}
 }
 
 #priors
-theta0 ~ dnorm(0, 1);
-rho ~ dnorm(0, 1/0.01)T(0,);
+theta0 ~ dnorm(-2, 1);
+rho ~ dnorm(0, 1/2)T(0,);
+pi ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.01);
+
 }
+
+}')
+
+mod.walk.phi.2 <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
+
+  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
+  phi[k,1] <- exp(gamma[k,1])
+  
+	for (t in 2:T){
+	  gamma[k,t] ~ dnorm(gamma[k,t-1], pow(pi,-2))
+	  phi[k,t] <- exp(gamma[k,t])
+	  
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/0.001)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+	logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+for(t in 1:T){
+	P[t] ~ dbin(positiverate[t], N)
+}
+
+for (k in 1:K){
+	for (t in 1:T){
+		
+		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+rho ~ dnorm(0, 1)T(0,);
+pi ~ dnorm(0, 1/0.01)T(0,);
+
+for (k in 1:K){
+	gamma0[k] ~ dnorm(0, 1);
+
+}
+
 }')
 
 
 
-cl <- makePSOCKcluster(4)
+
+
+cl <- makePSOCKcluster(6)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -217,8 +300,61 @@ parLoadModule(cl,"lecuyer")
 
 
 
-line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
-            n.chains=4,n.adapt = 10000,thin = 10, n.iter = 25000)
+line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi.2,
+            n.chains=5,n.adapt = 200000,thin = 100, n.iter = 5000000)
+
+means.posrate <- summary(line.linear)$statistics[,1]
+#check
+pos.rate <- means.posrate[grep("positiverate",names(means.posrate))]
+CI.lower <- summary(line.linear)$quantile[,1][grep("positiverate",names(means.posrate))]
+CI.upper <- summary(line.linear)$quantile[,5][grep("positiverate",names(means.posrate))]
+
+facebook.pred <- facebook %>% group_by(end_date) %>% summarise(posrate = max(pct_vaccinated))
+ipsos.pred <- ipsos_axios %>% group_by(end_date) %>% summarise(posrate = max(pct_vaccinated))
+household_pulse.pred <- household_pulse %>% group_by(end_date) %>% summarise(posrate = max(pct_vaccinated))
+
+my.data <- data.frame(dates= facebook.Y$end_date, posrate = pos.rate)
+
+data.benchmark <- data.frame(dates = data.benchmark$date[which(data.benchmark$date %in% facebook.Y$end_date)], posrate = data.benchmark$pct_pop_vaccinated[which(data.benchmark$date %in% facebook.Y$end_date)])
+
+data.bench.unique <- data.benchmark %>% group_by(dates) %>% summarise(posrate = max(posrate)) %>% transform(dates = as.Date(dates))
+
+final.plot <- data.frame(dates = c(facebook.Y$end_date,data.bench.unique$dates,facebook.pred$end_date,ipsos.pred$end_date,household_pulse.pred$end_date), 
+                         posrate = c(pos.rate,data.bench.unique$posrate,facebook.pred$posrate,ipsos.pred$posrate,household_pulse.pred$posrate),
+                         source = c(rep("Method",20),rep("Benchmark",20),rep("facebook",20),rep("Ipsos-axios",length(ipsos.pred$posrate)),rep("Household-Pulse",length(household_pulse.pred$posrate))))
+
+ggplot(data = final.plot,aes(x = as.Date(dates),y = posrate,colour = source)) + geom_point() + geom_line() + theme_minimal() + geom_crossbar(data = NULL,aes(ymin = CI.lower,ymax = CI.upper),inherit.aes = F)
+  
+
+
+
+line.walk <- jags.parfit(cl, data.list, c("positiverate","gamma0","rho"), mod.walk.phi.2,
+                           n.chains=6,n.adapt = 150000,thin = 100, n.iter = 5000000)
+
+
+means.posrate2 <- summary(line.walk)$statistics[,1]
+
+
+CI.lower.2 <- summary(line.walk)$quantile[,1][grep("positiverate",names(means.posrate2))]
+CI.upper.2 <- summary(line.walk)$quantile[,5][grep("positiverate",names(means.posrate2))]
+
+pos.rate2 <- means.posrate2[grep("positiverate",names(means.posrate2))]
+
+my.data2 <- data.frame(dates= facebook.Y$end_date, posrate = pos.rate2)
+
+
+ggplot(data = my.data2,aes(x = as.Date(dates),y = posrate)) + geom_point(colour = 'blue') + geom_line(colour = "blue")+
+  geom_point(data = data.bench.unique,aes(x = dates,y = posrate),colour = "grey") + geom_line(data = data.bench.unique,aes(x = dates,y = posrate),colour = "grey") +
+  geom_ribbon(aes(ymin = CI.lower.2,ymax = CI.upper.2),alpha = 0.2) + theme_minimal() + labs(x = "Date",y = "Vaccine Rate") +
+  
+
+
+
+
+
+
+
+
 
 #provides errors
 
@@ -231,17 +367,7 @@ data.list2 <- generate.dataset(N =   255200373,t = 1:20, ns = rep(250000,20),phi
 data.list2$Y[2,c(3,5,10,12,18)] <- NA
 data.list2$Y[3,c(1,2,8,11,20)] <- NA
 
-plot.dat <- data.list2$params[7:26]
 
-plot(plot.dat)
-
-data.list2$Y/data.list2$smalln
-
-draws <- rbinom(100000,255200373,prob = plot.dat[1]+0.1)
-
-dhyper(data.list2$Y[1],max(draws),N-max(draws),25000)
-
-#data.list.3 <- generate.dataset(phi= "linear")
 
 line.linear2 <- jags.parfit(cl, data.list2[-8], c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
                            n.chains=4,n.adapt = 10000,thin = 10, n.iter = 50000)
