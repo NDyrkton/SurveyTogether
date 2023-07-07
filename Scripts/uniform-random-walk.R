@@ -1,15 +1,15 @@
-inv.logit <- function(x){
-  exp(x)/(1+exp(x))
-}
-generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t)), phi = "constant"){
+#generate data from uniform distribution to mimic vaccine data
+
+generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
+  Ivec <- rep(3,K)
   smalln <- t(matrix(rep(ns,K),ncol = K))
   theta_t <- numeric(length(t))
   logit_theta_t <- numeric(length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
+  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/5)
   theta0 <- rnorm(1,mean =0, sd = 1)
   
   if(phi == "constant"){
@@ -39,12 +39,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
       }
     }
     
-    parameters <-  c(gamma0,rho,theta_t, theta0)
+    parameters <-  c(gamma0,theta_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,"rho",theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,theta.names,"theta0")
     
-    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
+    return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
     
   }else if(phi == "linear"){
     phi_kt <- matrix(NA,nrow =K,ncol = length(t))
@@ -74,13 +74,13 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
       
     }  
     
-    parameters <-  c(gamma_0k,gamma_1k,rho,theta_t, theta0)
+    parameters <-  c(gamma_0k,gamma_1k,theta_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma1.names <- paste(rep("gamma1",K),1:K,sep = "")
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma1.names,"rho",theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,gamma1.names,theta.names,"theta0")
     
-    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln,params = parameters))
+    return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln,params = parameters))
     
   }else if(phi == "walk"){
     
@@ -125,27 +125,34 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
         Y[k,i] <- Y_kt
       }
     }
-    parameters <- c(gamma_0k,as.numeric(gamma_kt),rho,pi,theta_t,theta0)
+    parameters <- c(gamma_0k,as.numeric(gamma_kt),theta_t,theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma_kt.c <- expand.grid(1:K,1:length(t))
     gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
     theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma_kt.names,"rho","pi",theta.names,"theta0")
+    names(parameters) <-  c(gamma0.names,gamma_kt.names,theta.names,"theta0")
     
     
-    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
+    return(list(K=K, Ivec= Ivec,T=5, times=times, N=N, Y=Y, smalln=smalln, params = parameters))
   }
   
 }
 
 
-generate.model.ests <- function(model.string, data.list, params ,n.chains =3, n.iter = 25000, thin = 10){
-  
-  jags.mod <- jags.model(textConnection(model.string), 
-                         data = data.list, n.chains = n.chains, n.adapt = 10000,quiet = T)
-  
-  samps <- coda.samples(jags.mod, params, n.iter = n.iter, thin = 10, progress.bar = "none")
-  #as of right now the estimate is a mean.
-  bayes.est <- summary(samps)$statistics[,1]
-  return(bayes.est)
-}
+
+
+data.linear <- generate.dataset(phi = "linear",t = 1:20)
+
+y <- data.linear$params[grep("theta",names(data.linear$params))][-21]
+
+plot(1:20,y,xlab = "time",ylab = "posrate")
+
+
+
+data.walk <- generate.dataset(phi = "walk",t = 1:20)
+
+y <- data.walk$params[grep("theta",names(data.walk$params))][-21]
+
+plot(1:20,y,xlab = "time",ylab = "posrate")
+
+

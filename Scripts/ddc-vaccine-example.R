@@ -8,6 +8,7 @@ library(ggplot2)
 library(dclone)
 library(dplyr)
 library(forecast)
+library(rstan)
 
 source("Scripts/helperfunctions.R")
 
@@ -40,14 +41,21 @@ data.all$Y <- round(data.all$n* data.all$pct_vaccinated)
 
 data.benchmark <- data.benchmark %>% filter(state == "US") 
 
+data.all$end_date <- as.Date(data.all$end_date)
+
+
+#or.
+full.data.joined <- data.all %>% group_by(mode,end_date) %>% summarise(Y = max(Y), n = max(n),CI.L = max(ci_2.5_samp),CI.U = max(ci_97.5_samp),posrate = max(pct_vaccinated))
+
+
 facebook <- data.all %>% filter(mode == "facebook")
 household_pulse <- data.all %>% filter(mode == "household_pulse")
 ipsos_axios <- data.all %>% filter(mode == "ipsos_axios")
 
 
-facebook.Y <- facebook %>% group_by(end_date) %>% summarise(Y = max(Y), n = max(n))
-household_pulse.Y <-  household_pulse %>% group_by(end_date) %>% summarise(Y = max(Y), n = max(n))
-ipsos_axios.Y <- ipsos_axios %>% group_by(end_date) %>% summarise(Y = max(Y), n = max(n))
+facebook.Y <- facebook %>% group_by(end_date) %>% summarise(Y = max(Y), n = max(n),CI.L = max(ci_2.5_samp),CI.U = max(ci_97.5_samp))
+household_pulse.Y <-  household_pulse %>% group_by(end_date) %>% summarise(Y = max(Y), n = max(n),CI.L = max(ci_2.5_samp),CI.U = max(ci_97.5_samp))
+ipsos_axios.Y <- ipsos_axios %>% group_by(end_date) %>% summarise(Y = max(Y), n = max(n),CI.L = max(ci_2.5_samp),CI.U = max(ci_97.5_samp))
 
 start.date <- min(data.all$end_date) ## 2021-01-09 #facebook only has date up to 2021-01-03
 end.date <- max(data.benchmark$date) # 2021-05-25 #facebook ends at 2021-05-22
@@ -108,7 +116,7 @@ for (k in 2:K){
 logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)T(logitpositiverate[t-1],);
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -127,113 +135,15 @@ for (k in 1:K){
 #priors
 theta0 ~ dnorm(-2, 1);
 rho ~ dnorm(0, 1/5)T(0,);
+mu ~ dnorm(0,1/2);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 	gamma1[k] ~ dnorm(0, 1/0.001);
 }
 }')
 
 
-
-
-mod.linear.phi <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:T){
-		phi[1,i] <- 1	
-}
-
-
-for (k in 2:K){
-	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], pow(rho,-2))
-	positiverate[t]	<- ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
-
-
-for (k in 1:K){
-	for (t in 1:T){
-	  
-		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-	}
-}
-
-#priors
-theta0 ~ dnorm(-2, 1);
-rho ~ dnorm(0, 1/0.01)T(0,);
-
-for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.001);
-}
-}')
-
-
-mod.walk.phi <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:T){
-		phi[1,i] <- 1	
-}
-
-
-for (k in 2:K){
-
-  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
-  phi[k,1] <- exp(gamma[k,1])
-  
-	for (t in 2:T){
-	  gamma[k,t] ~ dnorm(gamma[k,t-1], pow(pi,-2))
-	  phi[k,t] <- exp(gamma[k,t])
-	  
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/0.001)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],pow(rho,-2))
-	positiverate[t]	<- ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
-
-for (k in 1:K){
-	for (t in 1:T){
-		
-		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-	}
-}
-
-#priors
-theta0 ~ dnorm(-2, 1);
-rho ~ dnorm(0, 1/2)T(0,);
-pi ~ dnorm(0, 1/0.01)T(0,);
-
-for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1);
-
-}
-
-}')
 
 mod.walk.phi.2 <- custommodel('
 model{	
@@ -260,7 +170,7 @@ for (k in 2:K){
 logitpositiverate[1] ~ dnorm(theta0,1/0.001)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],);
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -280,7 +190,7 @@ theta0 ~ dnorm(-2, 1);
 rho ~ dnorm(0, 1)T(0,);
 pi ~ dnorm(0, 1/0.01)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 
 }
@@ -291,7 +201,7 @@ for (k in 1:K){
 
 
 
-cl <- makePSOCKcluster(6)
+cl <- makePSOCKcluster(4)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -299,80 +209,134 @@ parLoadModule(cl,"lecuyer")
 
 
 
-
-line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","rho"), mod.linear.phi.2,
-            n.chains=5,n.adapt = 200000,thin = 100, n.iter = 5000000)
+#100 million burnin
+line.linear <- jags.parfit(cl, data.list, c("positiverate"), mod.linear.phi.2,
+            n.chains=4,n.adapt = 5000000,thin = 10, n.iter = 500000)
 
 means.posrate <- summary(line.linear)$statistics[,1]
 #check
+
+
 pos.rate <- means.posrate[grep("positiverate",names(means.posrate))]
+
+
+
 CI.lower <- summary(line.linear)$quantile[,1][grep("positiverate",names(means.posrate))]
 CI.upper <- summary(line.linear)$quantile[,5][grep("positiverate",names(means.posrate))]
 
-facebook.pred <- facebook %>% group_by(end_date) %>% summarise(posrate = max(pct_vaccinated))
-ipsos.pred <- ipsos_axios %>% group_by(end_date) %>% summarise(posrate = max(pct_vaccinated))
-household_pulse.pred <- household_pulse %>% group_by(end_date) %>% summarise(posrate = max(pct_vaccinated))
 
-my.data <- data.frame(dates= facebook.Y$end_date, posrate = pos.rate)
 
-data.benchmark <- data.frame(dates = data.benchmark$date[which(data.benchmark$date %in% facebook.Y$end_date)], posrate = data.benchmark$pct_pop_vaccinated[which(data.benchmark$date %in% facebook.Y$end_date)])
+final.plot <- full.data.joined %>% select(mode,end_date,posrate,CI.L,CI.U)
+preds <- data.frame(mode = rep("method",20),CI.L = CI.lower, CI.U = CI.upper,posrate = pos.rate,end_date = facebook.Y$end_date)
+final.plot <- rbind(final.plot,preds)
+#benchmark
 
-data.bench.unique <- data.benchmark %>% group_by(dates) %>% summarise(posrate = max(posrate)) %>% transform(dates = as.Date(dates))
+data.bench.plot <- data.benchmark %>% filter(date %in% facebook.Y$end_date) %>% group_by(date) %>% summarise(posrate = max(pct_pop_vaccinated))
 
-final.plot <- data.frame(dates = c(facebook.Y$end_date,data.bench.unique$dates,facebook.pred$end_date,ipsos.pred$end_date,household_pulse.pred$end_date), 
-                         posrate = c(pos.rate,data.bench.unique$posrate,facebook.pred$posrate,ipsos.pred$posrate,household_pulse.pred$posrate),
-                         source = c(rep("Method",20),rep("Benchmark",20),rep("facebook",20),rep("Ipsos-axios",length(ipsos.pred$posrate)),rep("Household-Pulse",length(household_pulse.pred$posrate))))
+#only important one
 
-ggplot(data = final.plot,aes(x = as.Date(dates),y = posrate,colour = source)) + geom_point() + geom_line() + theme_minimal() + geom_crossbar(data = NULL,aes(ymin = CI.lower,ymax = CI.upper),inherit.aes = F)
+final.plot <- final.plot %>% filter(mode %in% c('method',"ipsos_axios","facebook","household_pulse"))
+
+
+ggplot(data = final.plot,aes(x = end_date,y = posrate,colour = mode)) + geom_point() + geom_line() + 
+  theme_minimal() + geom_errorbar(aes(ymin = CI.L, ymax = CI.U)) +
+  geom_point(data = data.bench.plot,aes(x = as.Date(date),y = posrate),colour = 'grey') + 
+  geom_line(data = data.bench.plot,aes(x = as.Date(date),y = posrate),colour = 'grey') +
+  labs(x = "Date", y = "Percentage Vaccinated",title = "Plot of survey estimates for random walk phi")
   
 
+gelman.diag(line.linear) # still has not converged after 5 million burn-in
 
+plot(line.linear)
+gelman.plot(line.linear)
 
-line.walk <- jags.parfit(cl, data.list, c("positiverate","gamma0","rho"), mod.walk.phi.2,
-                           n.chains=6,n.adapt = 150000,thin = 100, n.iter = 5000000)
+#switch to stan
 
+stan.linear <- "
+data{
+  int<lower=1> K;
+  int<lower=1> T;
+  int<lower=0> N;
+  int<lower=1, upper=T> times[K,T];
+  int<lower=0, upper=N> Y[K,T];
+  int<lower=0, upper=N> smalln[K,T];
+}
 
-means.posrate2 <- summary(line.walk)$statistics[,1]
+parameters{
+  real gamma0[K];
+  real gamma1[K];
+  real<lower=-20, upper=20> theta0;
+  real<lower = 0, upper = 100> rho;
+  real<lower = -20,upper =20> logitpositiverate[T];
+}
 
+transformed parameters{
+  real<lower = 0> phi[K,T];
+  real<lower=0,upper=1> positiverate[T];
 
-CI.lower.2 <- summary(line.walk)$quantile[,1][grep("positiverate",names(means.posrate2))]
-CI.upper.2 <- summary(line.walk)$quantile[,5][grep("positiverate",names(means.posrate2))]
+  for(i in 1:T){
+    phi[1,i] = 1;
+  }
 
-pos.rate2 <- means.posrate2[grep("positiverate",names(means.posrate2))]
-
-my.data2 <- data.frame(dates= facebook.Y$end_date, posrate = pos.rate2)
-
-
-ggplot(data = my.data2,aes(x = as.Date(dates),y = posrate)) + geom_point(colour = 'blue') + geom_line(colour = "blue")+
-  geom_point(data = data.bench.unique,aes(x = dates,y = posrate),colour = "grey") + geom_line(data = data.bench.unique,aes(x = dates,y = posrate),colour = "grey") +
-  geom_ribbon(aes(ymin = CI.lower.2,ymax = CI.upper.2),alpha = 0.2) + theme_minimal() + labs(x = "Date",y = "Vaccine Rate") +
+  for (k in 2:K){
+	  for (t in 1:T){
+		  phi[k,t] = exp(gamma0[k] + gamma1[k]*times[k,t]);
+	  }
+  }
   
+  for(t in 1:T){
+    positiverate[t] = inv_logit(logitpositiverate[t]);
+  }
+ 
+}
+
+
+model{
+
+  int P[T];
+  real PN;
+  
+	
+	
+  logitpositiverate[1] ~ normal(theta0,0.1);
+
+  for(t in 2:T){
+	  logitpositiverate[t] ~ uniform(logitpositiverate[t-1],logitpositiverate[t-1]+rho);
+  }
+
+  for(t in 1:T){
+	  P[t] ~ binomial_logit(N,logitpositiverate[t]);
+  }
+   
+  for (k in 1:K){
+  	for (t in 1:T){
+  	 PN = P[t]* 1.0 /N;
+
+		  Y[k,t] ~ binomial(smalln[k,t],1-(1-(PN))^phi[k,t]);
+	  }
+  }
+  theta0 ~ normal(-2, 1);
+  rho ~ normal(0, 5)T[0,];
+
+  for (k in 1:K){
+	  gamma0[k] ~ normal(0, 1);
+	  gamma1[k] ~ normal(0, 0.01);	
+	
+  }
+  
+}
+"
+data.impute.2 <- data.list
+
+data.impute.2$Y[1,] <- round(na.interp(data.impute.2$Y[1,]))
+data.impute.2$Y[2,] <- round(na.interp(data.impute.2$Y[2,]))
+
+
+fit <- stan(model_code = stan.linear,data= data.impute.2,iter = 10000)
 
 
 
 
-
-
-
-
-
-#provides errors
-
-
-
-###fix
-
-data.list2 <- generate.dataset(N =   255200373,t = 1:20, ns = rep(250000,20),phi= "linear")
-
-data.list2$Y[2,c(3,5,10,12,18)] <- NA
-data.list2$Y[3,c(1,2,8,11,20)] <- NA
-
-
-
-line.linear2 <- jags.parfit(cl, data.list2[-8], c("positiverate","gamma0","gamma1","rho"), mod.linear.phi,
-                           n.chains=4,n.adapt = 10000,thin = 10, n.iter = 50000)
-
-summary(line.linear2)$statistics[,1]
-
-data.list2$params
-
+#export
+saveRDS(data.list,file = "ddc_list.Rdata")
+readRDS("ddc_list.Rdata")
