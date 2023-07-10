@@ -1,6 +1,11 @@
 inv.logit <- function(x){
   exp(x)/(1+exp(x))
 }
+
+logit <- function(x){
+  log(x/(1-x))
+}
+
 generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
   smalln <- t(matrix(rep(ns,K),ncol = K))

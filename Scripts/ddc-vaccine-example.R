@@ -94,9 +94,107 @@ K = 3
 times <- t(matrix(rep(t,K),ncol = K))
 
 
+#M is no more than 10x
+
 data.list <- list(K = 3, T = 20, N = N, times = times, Y = Y, smalln = n)
 
+#data.list$Y[1,] <- round(data.list$Y[1,]*100)
+#data.list$smalln[1,] <- round(data.list$smalln[1,]*100)
 
+#data.list$Y[2,] <- round(data.list$Y[2,]*10)
+#data.list$smalln[2,] <- round(data.list$smalln[2,]*10)
+
+#data.list$Y[3,] <- round(data.list$Y[3,]/100)
+#data.list$smalln[3,] <- round(data.list$smalln[3,]/100)
+
+
+probs <- c(0.1,0.2,0.3)
+
+logitposrate <- logit(probs)
+
+cumulativeposrate = sum(inv.logit(logitposrate))
+
+N/data.list$smalln
+
+
+#too much missing? lets try ensuring the unbiased survey is never missing.
+missing <- !is.na(Y[1,])
+Y <-  Y[,missing]
+t <- 1:11
+K = 3
+times <- t(matrix(rep(t,K),ncol = K))
+n <- n[,missing]
+
+
+data.list.full <- list(K = 3, T = 11, N = N, times = times, Y = Y, smalln = n)
+
+
+
+
+
+
+
+
+mod.linear.phi <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+
+
+
+for(t in 2:T){
+
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],)
+	
+	
+	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
+	
+	
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+for(t in 1:T){
+          #normal approximation
+  #P[t] ~ dnorm(N*positiverate[t], 1/(N*positiverate[t]*(1-positiverate[t]))) 
+  #P[t] ~ dnorm(positiverate[t], N/(positiverate[t]*(1-positiverate[t]))) 
+	P[t] ~ dbin(positiverate[t], N)
+}
+
+
+for (k in 1:K){
+	for (t in 1:T){
+	  Y[k,t] ~ dnorm((1-(1-(P[t]/N))^phi[k,t])*smalln[k,t], 1/((1-(1-(P[t]/N))^phi[k,t])*smalln[k,t]*((1-(P[t]/N))^phi[k,t])))
+		# Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+rho ~ dgamma(5,5);
+
+for (k in 2:K){
+	gamma0[k] ~ dnorm(0, 1);
+	gamma1[k] ~ dnorm(0, 1/0.01);
+}
+}')
+
+
+##sum on outside
 mod.linear.phi.2 <- custommodel('
 model{	
 #likelihood
@@ -115,9 +213,22 @@ for (k in 2:K){
 	
 logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
+
+
+
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/rho)T(logitpositiverate[t-1],);
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+
+
+  #get cumulative positiverate
+  
+  for(i in 1:(t-1)){
+  cposrate_t_1 <- cposrate_t_1 + ilogit(logitpositiverate[i])
+  
+  }
+  #cannot jump higher than cumulative posrate
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(,logit(1-cposrate_t_1))
+	
+	positiverate[t]	<- cposrate_t_1 + ilogit(logitpositiverate[t])
 }
 
 for(t in 1:T){
@@ -134,14 +245,96 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-rho ~ dnorm(0, 1/5)T(0,);
-mu ~ dnorm(0,1/2);
+rho ~ dgamma(5,12);
+
+for (k in 2:K){
+	gamma0[k] ~ dnorm(0, 1);
+	gamma1[k] ~ dnorm(0, 1/0.01);
+}
+}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mod.linear.phi.3 <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+  
+  
+  for(i in 1:t){
+    cumulative = ilogit(cumulative + logitpositiverate[i])
+  
+  }
+
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho);
+	
+	
+	
+	positiverate[t]	<- ilogit(sum(logitpositiverate[1:t]))
+}
+
+for(t in 1:T){
+	P[t] ~ dnopr(ilogit(positiverate[t], N)
+}
+
+
+for (k in 1:K){
+	for (t in 1:T){
+	  
+		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+rho ~ dgamma(5,12);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 	gamma1[k] ~ dnorm(0, 1/0.001);
 }
 }')
+
+
 
 
 
@@ -210,8 +403,8 @@ parLoadModule(cl,"lecuyer")
 
 
 #100 million burnin
-line.linear <- jags.parfit(cl, data.list, c("positiverate"), mod.linear.phi.2,
-            n.chains=4,n.adapt = 5000000,thin = 10, n.iter = 500000)
+line.linear <- jags.parfit(cl, data.list, c("positiverate","rho","gamma0"), mod.linear.phi,
+            n.chains=4,n.adapt = 100000,thin = 10, n.iter = 100000)
 
 means.posrate <- summary(line.linear)$statistics[,1]
 #check
@@ -256,23 +449,25 @@ stan.linear <- "
 data{
   int<lower=1> K;
   int<lower=1> T;
-  int<lower=0> N;
+  int<lower=1> N;
   int<lower=1, upper=T> times[K,T];
-  int<lower=0, upper=N> Y[K,T];
-  int<lower=0, upper=N> smalln[K,T];
+  int<lower=1, upper=N> Y[K,T];
+  int<lower=1, upper=N> smalln[K,T];
 }
 
 parameters{
   real gamma0[K];
   real gamma1[K];
-  real<lower=-20, upper=20> theta0;
-  real<lower = 0, upper = 100> rho;
-  real<lower = -20,upper =20> logitpositiverate[T];
+  real theta0;
+  real<lower = 0.01> rho;
+  real logitpositiverate[T];
+  real<lower =0, upper = 1>P[T];
+  
 }
 
 transformed parameters{
-  real<lower = 0> phi[K,T];
-  real<lower=0,upper=1> positiverate[T];
+  real<lower = 0.0005> phi[K,T];
+  real<lower =0, upper = 1>positiverate[T];
 
   for(i in 1:T){
     phi[1,i] = 1;
@@ -293,32 +488,29 @@ transformed parameters{
 
 model{
 
-  int P[T];
-  real PN;
   
 	
 	
   logitpositiverate[1] ~ normal(theta0,0.1);
 
   for(t in 2:T){
-	  logitpositiverate[t] ~ uniform(logitpositiverate[t-1],logitpositiverate[t-1]+rho);
+	  logitpositiverate[t] ~ normal(logitpositiverate[t-1],sqrt(rho))T[logitpositiverate[t-1],];
   }
 
   for(t in 1:T){
-	  P[t] ~ binomial_logit(N,logitpositiverate[t]);
+	  P[t] ~ normal(positiverate[t], sqrt((positiverate[t]*(1-positiverate[t]))/N));
   }
    
   for (k in 1:K){
   	for (t in 1:T){
-  	 PN = P[t]* 1.0 /N;
 
-		  Y[k,t] ~ binomial(smalln[k,t],1-(1-(PN))^phi[k,t]);
+		  Y[k,t] ~ binomial(smalln[k,t],1-(1-(P[t]))^phi[k,t]);
 	  }
   }
   theta0 ~ normal(-2, 1);
-  rho ~ normal(0, 5)T[0,];
+  rho ~ inv_gamma(5,0.5);
 
-  for (k in 1:K){
+  for (k in 2:K){
 	  gamma0[k] ~ normal(0, 1);
 	  gamma1[k] ~ normal(0, 0.01);	
 	
@@ -326,13 +518,20 @@ model{
   
 }
 "
+
 data.impute.2 <- data.list
 
 data.impute.2$Y[1,] <- round(na.interp(data.impute.2$Y[1,]))
 data.impute.2$Y[2,] <- round(na.interp(data.impute.2$Y[2,]))
 
 
-fit <- stan(model_code = stan.linear,data= data.impute.2,iter = 10000)
+my.dat <- generate.dataset(N = 2552003, n = rep(250000,20),t = 1:20,phi = "linear")
+y <- my.dat$params[grep("theta",names(my.dat$params))][-21]
+
+plot(1:20,y)
+
+
+fit <- stan(model_code = stan.linear,data= my.dat,iter = 10000)
 
 
 
