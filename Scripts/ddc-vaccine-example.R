@@ -8,7 +8,7 @@ library(ggplot2)
 library(dclone)
 library(dplyr)
 library(forecast)
-library(rstan)
+#library(rstan)
 
 source("Scripts/helperfunctions.R")
 
@@ -159,26 +159,20 @@ positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],)
-	
-	
 	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
-	
-	
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
-for(t in 1:T){
+#for(t in 1:T){
           #normal approximation
-  #P[t] ~ dnorm(N*positiverate[t], 1/(N*positiverate[t]*(1-positiverate[t]))) 
-  #P[t] ~ dnorm(positiverate[t], N/(positiverate[t]*(1-positiverate[t]))) 
-	P[t] ~ dbin(positiverate[t], N)
-}
+# P[t] ~ dbin(positiverate[t], N)
+#}
 
 
 for (k in 1:K){
 	for (t in 1:T){
-	  Y[k,t] ~ dnorm((1-(1-(P[t]/N))^phi[k,t])*smalln[k,t], 1/((1-(1-(P[t]/N))^phi[k,t])*smalln[k,t]*((1-(P[t]/N))^phi[k,t])))
-		# Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+    #		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
 	}
 }
@@ -360,21 +354,21 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.001)
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],);
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
+#for(t in 1:T){
+	#P[t] ~ dbin(positiverate[t], N)
+#}
 
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 	}
 }
 
@@ -403,8 +397,8 @@ parLoadModule(cl,"lecuyer")
 
 
 #100 million burnin
-line.linear <- jags.parfit(cl, data.list, c("positiverate","rho","gamma0"), mod.linear.phi,
-            n.chains=4,n.adapt = 100000,thin = 10, n.iter = 100000)
+line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0"), mod.linear.phi,
+            n.chains=4,n.adapt = 300000,thin = 10, n.iter = 500000)
 
 means.posrate <- summary(line.linear)$statistics[,1]
 #check
@@ -435,13 +429,18 @@ ggplot(data = final.plot,aes(x = end_date,y = posrate,colour = mode)) + geom_poi
   theme_minimal() + geom_errorbar(aes(ymin = CI.L, ymax = CI.U)) +
   geom_point(data = data.bench.plot,aes(x = as.Date(date),y = posrate),colour = 'grey') + 
   geom_line(data = data.bench.plot,aes(x = as.Date(date),y = posrate),colour = 'grey') +
-  labs(x = "Date", y = "Percentage Vaccinated",title = "Plot of survey estimates for random walk phi")
+  labs(x = "Date", y = "Percentage Vaccinated",title = "Plot of survey estimates for walk phi, stacked on unbiased data")
   
 
 gelman.diag(line.linear) # still has not converged after 5 million burn-in
 
 plot(line.linear)
 gelman.plot(line.linear)
+
+
+gammas <- means.posrate[1:40]
+plot(1:20,exp(gammas[1:20]),ylim = c(1,2),col = "red")
+points(exp(gammas[21:40]),col = "green")
 
 #switch to stan
 

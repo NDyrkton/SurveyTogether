@@ -1,4 +1,12 @@
 
+
+
+library(MCMCpack)
+library(rjags)
+library(truncnorm)
+library(ggplot2)
+library(dclone)
+
 mod.linear.phi <- custommodel('
 model{	
 #likelihood
@@ -27,16 +35,12 @@ for(t in 2:T){
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
-for(t in 1:T){
-	P[t] ~ dbin(dround(positiverate[t],4), N)
-}
-
 
 for (k in 1:K){
 	for (t in 1:T){
 	  
       	  
-		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
 	}
 }
@@ -253,6 +257,9 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
   }
   
 }
+
+inv.logit <- function(x){exp(x)/(1+exp(x))}
+
 #N = 2500000, n = rep(25000,20)
 
 
@@ -329,4 +336,47 @@ var(est)
 
 dnoncenhypergeom(min(param),P,N-P,n,phi)
 dbinom(min(param),n,1-(1-(P/N))^phi)
+
+
+
+#test small sample approximation
+
+pos.rate <- 0.8732
+
+P_t <- rbinom(1,size =25520000 ,prob = pos.rate)
+
+
+surveys <- rbinom(1,size = 100,prob = 1-(1-(P_t/N))^1)
+
+mean(surveys/100)
+jags.mod <- custommodel("
+                        
+model{
+
+
+  P ~ dbin(positiverate,N)
+
+
+  Y ~ dbin(1-(1-(P/N)),smalln)
+  
+  #prior 
+  
+  positiverate ~ dunif(0.8,1)
+
+
+}
+                        
+")
+
+
+cl <- makePSOCKcluster(4)
+
+clusterEvalQ(cl, library(dclone))
+load.module("lecuyer")
+parLoadModule(cl,"lecuyer")
+
+
+line.test <- jags.parfit(cl, list(Y=surveys,smalln = 100,N = N), c("positiverate"), jags.mod,
+                           n.chains=4,n.adapt = 5000,thin = 5, n.iter =100000)
+
 
