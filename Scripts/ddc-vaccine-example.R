@@ -8,7 +8,7 @@ library(ggplot2)
 library(dclone)
 library(dplyr)
 library(forecast)
-#library(rstan)
+library(stringr)
 
 source("Scripts/helperfunctions.R")
 
@@ -40,8 +40,8 @@ data.all <- data.all %>% filter(end_date <= '2021-05-26' & pop == "US"& pct_erro
 data.all$Y <- round(data.all$n* data.all$pct_vaccinated)
 
 data.benchmark <- data.benchmark %>% filter(state == "US") 
-
 data.all$end_date <- as.Date(data.all$end_date)
+data.benchmark$date <- as.Date(data.benchmark$date)
 
 
 #or.
@@ -108,16 +108,9 @@ data.list <- list(K = 3, T = 20, N = N, times = times, Y = Y, smalln = n)
 #data.list$smalln[3,] <- round(data.list$smalln[3,]/100)
 
 
-probs <- c(0.1,0.2,0.3)
 
-logitposrate <- logit(probs)
+#unbiased survey is present at all points
 
-cumulativeposrate = sum(inv.logit(logitposrate))
-
-N/data.list$smalln
-
-
-#too much missing? lets try ensuring the unbiased survey is never missing.
 missing <- !is.na(Y[1,])
 Y <-  Y[,missing]
 t <- 1:11
@@ -129,9 +122,61 @@ n <- n[,missing]
 data.list.full <- list(K = 3, T = 11, N = N, times = times, Y = Y, smalln = n)
 
 
+#write.csv the full data to compare
+
+write.csv(full.data.joined,"Data/full_data_joined_ddc_vaccine.csv",row.names = F)
+
+
+mod.const.phi <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+positiverate[1]	<- ilogit(logitpositiverate[1])
 
 
 
+for(t in 2:T){
+
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],)
+	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+#for(t in 1:T){
+          #normal approximation
+# P[t] ~ dbin(positiverate[t], N)
+#}
+
+
+for (k in 1:K){
+	for (t in 1:T){
+    #		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+rho ~ dnorm(0, 1)T(0,);
+
+for (k in 2:K){
+	gamma0[k] ~ dnorm(0, 1);
+}
+}')
 
 
 
@@ -179,67 +224,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-rho ~ dgamma(5,5);
-
-for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.01);
-}
-}')
-
-
-##sum on outside
-mod.linear.phi.2 <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:T){
-		phi[1,i] <- 1	
-}
-
-
-for (k in 2:K){
-	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-
-
-
-for(t in 2:T){
-
-
-  #get cumulative positiverate
-  
-  for(i in 1:(t-1)){
-  cposrate_t_1 <- cposrate_t_1 + ilogit(logitpositiverate[i])
-  
-  }
-  #cannot jump higher than cumulative posrate
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(,logit(1-cposrate_t_1))
-	
-	positiverate[t]	<- cposrate_t_1 + ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
-
-
-for (k in 1:K){
-	for (t in 1:T){
-	  
-		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-	}
-}
-
-#priors
-theta0 ~ dnorm(-2, 1);
-rho ~ dgamma(5,12);
+rho ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -250,89 +235,7 @@ for (k in 2:K){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-mod.linear.phi.3 <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:T){
-		phi[1,i] <- 1	
-}
-
-
-for (k in 2:K){
-	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-for(t in 2:T){
-  
-  
-  for(i in 1:t){
-    cumulative = ilogit(cumulative + logitpositiverate[i])
-  
-  }
-
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho);
-	
-	
-	
-	positiverate[t]	<- ilogit(sum(logitpositiverate[1:t]))
-}
-
-for(t in 1:T){
-	P[t] ~ dnopr(ilogit(positiverate[t], N)
-}
-
-
-for (k in 1:K){
-	for (t in 1:T){
-	  
-		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-	}
-}
-
-#priors
-theta0 ~ dnorm(-2, 1);
-rho ~ dgamma(5,12);
-
-for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.001);
-}
-}')
-
-
-
-
-
-mod.walk.phi.2 <- custommodel('
+mod.walk.phi <- custommodel('
 model{	
 #likelihood
 
@@ -375,7 +278,7 @@ for (k in 1:K){
 #priors
 theta0 ~ dnorm(-2, 1);
 rho ~ dnorm(0, 1)T(0,);
-pi ~ dnorm(0, 1/0.01)T(0,);
+pi ~ dnorm(0, 1/20)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -386,7 +289,7 @@ for (k in 2:K){
 
 
 
-
+#create 4 parallel chains
 
 cl <- makePSOCKcluster(4)
 
@@ -394,16 +297,12 @@ clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
+#run linear phi/ walk phi
 
-
-#100 million burnin
-line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma0"), mod.linear.phi,
-            n.chains=4,n.adapt = 300000,thin = 10, n.iter = 500000)
+line.linear <- jags.parfit(cl, data.list, c("positiverate","gamma"), mod.walk.phi,
+            n.chains=4,n.adapt = 500000,thin = 10, n.iter = 100000)
 
 means.posrate <- summary(line.linear)$statistics[,1]
-#check
-
-
 pos.rate <- means.posrate[grep("positiverate",names(means.posrate))]
 
 
@@ -429,109 +328,26 @@ ggplot(data = final.plot,aes(x = end_date,y = posrate,colour = mode)) + geom_poi
   theme_minimal() + geom_errorbar(aes(ymin = CI.L, ymax = CI.U)) +
   geom_point(data = data.bench.plot,aes(x = as.Date(date),y = posrate),colour = 'grey') + 
   geom_line(data = data.bench.plot,aes(x = as.Date(date),y = posrate),colour = 'grey') +
-  labs(x = "Date", y = "Percentage Vaccinated",title = "Plot of survey estimates for walk phi, stacked on unbiased data")
+  labs(x = "Date", y = "Percentage Vaccinated",title = "Plot of survey estimates for random walk phi")
   
 
 gelman.diag(line.linear) # still has not converged after 5 million burn-in
+
+
 
 plot(line.linear)
 gelman.plot(line.linear)
 
 
 gammas <- means.posrate[1:40]
-plot(1:20,exp(gammas[1:20]),ylim = c(1,2),col = "red")
-points(exp(gammas[21:40]),col = "green")
+gamma2 <- gammas[seq(1,40,by = 2)]
+gamma3 <- gammas[-seq(1,40,by = 2)]
 
-#switch to stan
-
-stan.linear <- "
-data{
-  int<lower=1> K;
-  int<lower=1> T;
-  int<lower=1> N;
-  int<lower=1, upper=T> times[K,T];
-  int<lower=1, upper=N> Y[K,T];
-  int<lower=1, upper=N> smalln[K,T];
-}
-
-parameters{
-  real gamma0[K];
-  real gamma1[K];
-  real theta0;
-  real<lower = 0.01> rho;
-  real logitpositiverate[T];
-  real<lower =0, upper = 1>P[T];
-  
-}
-
-transformed parameters{
-  real<lower = 0.0005> phi[K,T];
-  real<lower =0, upper = 1>positiverate[T];
-
-  for(i in 1:T){
-    phi[1,i] = 1;
-  }
-
-  for (k in 2:K){
-	  for (t in 1:T){
-		  phi[k,t] = exp(gamma0[k] + gamma1[k]*times[k,t]);
-	  }
-  }
-  
-  for(t in 1:T){
-    positiverate[t] = inv_logit(logitpositiverate[t]);
-  }
- 
-}
+gamma.data <- data.frame(time = rep(1:20,2), gamma = c(gamma2,gamma3),survey = c(rep("Household-Pulse",20),rep("Facebook",20)))
 
 
-model{
-
-  
-	
-	
-  logitpositiverate[1] ~ normal(theta0,0.1);
-
-  for(t in 2:T){
-	  logitpositiverate[t] ~ normal(logitpositiverate[t-1],sqrt(rho))T[logitpositiverate[t-1],];
-  }
-
-  for(t in 1:T){
-	  P[t] ~ normal(positiverate[t], sqrt((positiverate[t]*(1-positiverate[t]))/N));
-  }
-   
-  for (k in 1:K){
-  	for (t in 1:T){
-
-		  Y[k,t] ~ binomial(smalln[k,t],1-(1-(P[t]))^phi[k,t]);
-	  }
-  }
-  theta0 ~ normal(-2, 1);
-  rho ~ inv_gamma(5,0.5);
-
-  for (k in 2:K){
-	  gamma0[k] ~ normal(0, 1);
-	  gamma1[k] ~ normal(0, 0.01);	
-	
-  }
-  
-}
-"
-
-data.impute.2 <- data.list
-
-data.impute.2$Y[1,] <- round(na.interp(data.impute.2$Y[1,]))
-data.impute.2$Y[2,] <- round(na.interp(data.impute.2$Y[2,]))
-
-
-my.dat <- generate.dataset(N = 2552003, n = rep(250000,20),t = 1:20,phi = "linear")
-y <- my.dat$params[grep("theta",names(my.dat$params))][-21]
-
-plot(1:20,y)
-
-
-fit <- stan(model_code = stan.linear,data= my.dat,iter = 10000)
-
+ggplot(data = gamma.data,aes(x = time, y = exp(gamma), col = survey)) + geom_point() + geom_line() +
+  theme_minimal() + labs(x = "Time",y = expression("phi"),title = "Plot of Phi Over Time by Survey")
 
 
 
