@@ -14,7 +14,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
+  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 2)
   theta0 <- rnorm(1,mean =0, sd = 1)
   
   if(phi == "constant"){
@@ -29,7 +29,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
     
     for(i in 2:length(t)){
       
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = rho)
+      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = 1/sqrt(rho))
       theta_t[i] <- inv.logit(logit_theta_t[i])
       
     }
@@ -61,7 +61,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
     theta_t[1] <- inv.logit(logit_theta_t[1])
     
     for(i in 2:length(t)){
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = rho)
+      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = 1/sqrt(rho))
       theta_t[i] <- inv.logit(logit_theta_t[i])
       
     }
@@ -114,7 +114,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
       phi_kt[2:K,i] <- exp(gamma_kt[2:K,i])
       
       
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = rho)
+      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = 1/sqrt(rho))
       theta_t[i] <- inv.logit(logit_theta_t[i])
       
     }

@@ -318,6 +318,7 @@ final.plot <- rbind(final.plot,preds)
 #benchmark
 
 data.bench.plot <- data.benchmark %>% filter(date %in% facebook.Y$end_date) %>% group_by(date) %>% summarise(posrate = max(pct_pop_vaccinated))
+write.csv(data.bench.plot,"Data/Benchmark_clean.csv",row.names = F)
 
 #only important one
 
