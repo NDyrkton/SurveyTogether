@@ -1,3 +1,7 @@
+
+library(MCMCpack)
+library(truncnorm)
+
 inv.logit <- function(x){
   exp(x)/(1+exp(x))
 }
@@ -6,16 +10,17 @@ logit <- function(x){
   log(x/(1-x))
 }
 
-generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t)), phi = "constant"){
+#now fixed to be consistent with notation in paper.
+generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
   smalln <- t(matrix(rep(ns,K),ncol = K))
+  posrate_t <- numeric(length(t))
   theta_t <- numeric(length(t))
-  logit_theta_t <- numeric(length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  rho <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 2)
-  theta0 <- rnorm(1,mean =0, sd = 1)
+  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.5))
+  theta0 <- rnorm(1,mean =0, sd = sqrt(0.5))
   
   if(phi == "constant"){
     #generate param based on prior
@@ -24,16 +29,16 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
     phi <- exp(gamma0)
     
     
-    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = 1/10)
-    theta_t[1] <- inv.logit(logit_theta_t[1])
+    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(0.5))
+    posrate_t[1] <- inv.logit(theta_t[1])
     
     for(i in 2:length(t)){
       
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = 1/sqrt(rho))
-      theta_t[i] <- inv.logit(logit_theta_t[i])
+      theta_t[i] <- rnorm(1,mean = theta_t[i-1],sd = sqrt(sigmasq))
+      posrate_t[i] <- inv.logit(theta_t[i])
       
     }
-    P_t <- rbinom(n = length(t),size = N, prob = theta_t)
+    P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
     
     for(k in 1:K){
       
@@ -44,10 +49,10 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
       }
     }
     
-    parameters <-  c(gamma0,rho,theta_t, theta0)
+    parameters <-  c(gamma0,sigmasq,posrate_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
-    theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,"rho",theta.names,"theta0")
+    posrate.names <- paste(rep("posrate",length(t)),1:length(t),sep = "")
+    names(parameters) <-  c(gamma0.names,"sigmasq",posrate.names,"theta0")
     
     return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
     
@@ -57,16 +62,16 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
     gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(0.1,K-1)))
     
-    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = 1/10)
-    theta_t[1] <- inv.logit(logit_theta_t[1])
+    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(1/2))
+    posrate_t[1] <- inv.logit(theta_t[1])
     
     for(i in 2:length(t)){
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = 1/sqrt(rho))
-      theta_t[i] <- inv.logit(logit_theta_t[i])
+      theta_t[i] <- rnorm(1,mean = theta_t[i-1],sd = sqrt(sigmasq))
+      posrate_t[i] <- inv.logit(theta_t[i])
       
     }
     
-    P_t <- rbinom(n = length(t),size = N, prob = theta_t)
+    P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
     
     for(k in 1:K){
       for(i in 1:length(t)){
@@ -79,11 +84,11 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
       
     }  
     
-    parameters <-  c(gamma_0k,gamma_1k,rho,theta_t, theta0)
+    parameters <-  c(gamma_0k,gamma_1k,sigmasq,posrate_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma1.names <- paste(rep("gamma1",K),1:K,sep = "")
-    theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma1.names,"rho",theta.names,"theta0")
+    posrate.names <- paste(rep("posrate",length(t)),1:length(t),sep = "")
+    names(parameters) <-  c(gamma0.names,gamma1.names,"sigmasq",posrate.names,"theta0")
     
     return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln,params = parameters))
     
@@ -96,12 +101,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
     gamma_kt[1,] <- rep(0,length(t))
     #prior
     
-    pi <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
     
     
     
-    logit_theta_t[1] <- rnorm(1,mean = theta0,sd = 1/10)
-    theta_t[1] <- inv.logit(logit_theta_t[1])
+    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(0.5))
+    posrate_t[1] <- inv.logit(theta_t[1])
     #first study is unbiased 
     
     phi_kt[1,] <- exp(gamma_kt[1,])
@@ -110,32 +115,31 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:3), ns = rep(100,length(t))
     
     for(i in 2:length(t)){
       
-      gamma_kt[2:K,i] <- rnorm(K-1, mean = gamma_kt[2:K,i-1],sd = c(pi,pi))
+      gamma_kt[2:K,i] <- rnorm(K-1, mean = gamma_kt[2:K,i-1],sd = sqrt(c(pisq,pisq)))
       phi_kt[2:K,i] <- exp(gamma_kt[2:K,i])
       
       
-      logit_theta_t[i] <- rnorm(1,mean = logit_theta_t[i-1],sd = 1/sqrt(rho))
-      theta_t[i] <- inv.logit(logit_theta_t[i])
+      theta_t[i] <- rnorm(1,mean = theta_t[i-1],sd = sqrt(sigmasq))
+      posrate_t[i] <- inv.logit(theta_t[i])
       
     }
     
-    P_t <- rbinom(n = length(t),size = N, prob = theta_t)
+    P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
     
     for(k in 1:K){
       
       for(i in 1:length(t)){
         
-        
         Y_kt <- rnoncenhypergeom(n = 1, n1 = P_t[i],n2 = N-P_t[i], m1 = smalln[k,i], psi = phi_kt[k,i])
         Y[k,i] <- Y_kt
       }
     }
-    parameters <- c(gamma_0k,as.numeric(gamma_kt),rho,pi,theta_t,theta0)
+    parameters <- c(gamma_0k,as.numeric(gamma_kt),sigmasq,pisq,posrate_t,theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma_kt.c <- expand.grid(1:K,1:length(t))
     gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
-    theta.names <- paste(rep("theta",length(t)),1:length(t),sep = "")
-    names(parameters) <-  c(gamma0.names,gamma_kt.names,"rho","pi",theta.names,"theta0")
+    posrate.names <- paste(rep("posrate",length(t)),1:length(t),sep = "")
+    names(parameters) <-  c(gamma0.names,gamma_kt.names,"sigmasq","pisq",posrate.names,"theta0")
     
     
     return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
