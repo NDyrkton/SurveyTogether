@@ -29,7 +29,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     phi <- exp(gamma0)
     
     
-    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(0.5))
+    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
     
     for(i in 2:length(t)){
@@ -62,7 +62,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
     gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(0.1,K-1)))
     
-    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(1/2))
+    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
     
     for(i in 2:length(t)){
@@ -105,12 +105,12 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     
     
     
-    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(0.5))
+    theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
     #first study is unbiased 
     
     phi_kt[1,] <- exp(gamma_kt[1,])
-    gamma_kt[2:K,1] <- rnorm(K-1,mean = gamma_0k[2:K],sd = 1/10)
+    gamma_kt[2:K,1] <- rnorm(K-1,mean = gamma_0k[2:K],sd = sqrt(pisq))
     phi_kt[2:K,1] <- exp(gamma_kt[2:K,1])
     
     for(i in 2:length(t)){

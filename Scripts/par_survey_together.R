@@ -25,7 +25,7 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.5)
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
@@ -66,7 +66,7 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.5)
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
@@ -105,7 +105,7 @@ for (i in 1:T){
 
 for (k in 2:K){
 
-  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
+  gamma[k,1] ~ dnorm(gamma0[k],1/pisq)
   phi[k,1] <- exp(gamma[k,1])
   
 	for (t in 2:T){
@@ -116,7 +116,7 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
 	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)
@@ -147,11 +147,6 @@ for (k in 1:K){
 }')
 
 #helper functions
-
-inv.logit <- function(x){
-  exp(x)/(1+exp(x))
-}
-
 source("Scripts/helperfunctions.R")
 
 
@@ -183,7 +178,7 @@ load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
 
-NN <- 50
+NN <- 10
 set.seed(12345)
 
 error <- matrix(NA,nrow = NN, ncol = 9)

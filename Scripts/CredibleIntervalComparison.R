@@ -67,14 +67,14 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 
 
 
 for(t in 2:T){
 
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],)
 	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
@@ -95,14 +95,12 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-rho ~ dnorm(0, 1)T(0,);
+sigmasq ~ dnorm(0, 1/5)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 }
 }')
-
-
 
 
 mod.linear.phi <- custommodel('
@@ -121,14 +119,14 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 
 
 
 for(t in 2:T){
 
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],)
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],)
 	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
@@ -149,11 +147,11 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-rho ~ dnorm(0, 1)T(0,);
+sigmasq ~ dnorm(0, 1/5)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.01);
+	gamma1[k] ~ dnorm(0, 1/0.25);
 }
 }')
 
@@ -169,21 +167,21 @@ for (i in 1:T){
 
 for (k in 2:K){
 
-  gamma[k,1] ~ dnorm(gamma0[k],1/0.01)
+  gamma[k,1] ~ dnorm(gamma0[k],1/pisq)
   phi[k,1] <- exp(gamma[k,1])
   
 	for (t in 2:T){
-	  gamma[k,t] ~ dnorm(gamma[k,t-1], pow(pi,-2))
+	  gamma[k,t] ~ dnorm(gamma[k,t-1], 1/pisq)
 	  phi[k,t] <- exp(gamma[k,t])
 	  
 	}
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(logitpositiverate[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)T(logitpositiverate[t-1],);
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],);
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
@@ -200,8 +198,8 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-rho ~ dnorm(0, 1)T(0,);
-pi ~ dnorm(0, 1/20)T(0,);
+sigmasq ~ dnorm(0, 1/5)T(0,);
+pisq ~ dnorm(0, 1/5)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -210,61 +208,10 @@ for (k in 2:K){
 
 }')
 
-
-mod.linear.phi.example <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:T){
-		phi[1,i] <- 1	
-}
-
-
-for (k in 2:K){
-	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/0.01)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-
-
-
-for(t in 2:T){
-
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],rho)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-          #normal approximation
- P[t] ~ dbin(positiverate[t], N)
-}
-
-
-for (k in 1:K){
-	for (t in 1:T){
-    #Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-		#Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
-		 Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
-	}
-}
-
-#priors
-theta0 ~ dnorm(0, 10);
-rho ~ dnorm(0, 5)T(0,);
-
-for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.01);
-}
-}')
 
 #get unbiased data with no NAs
 ipsos.dat <- extract.unbiased.nona(data.list,col = 1)
-household.dat <- extract.unbiased.nona(data.list,col=2)
+household.dat <- extract.unbiased.nona(data.list,col= 2)
 facebook.dat <- extract.unbiased.nona(data.list,col = 3)
 
 
@@ -283,66 +230,11 @@ chain3<- list(.RNG.name = "base::Wichmann-Hill",
 chain4<- list(.RNG.name = "base::Super-Duper", 
               .RNG.seed = c(482))
 
-#first we start with the example on table 1
-
-set.seed(123)
-
-linear.data <- generate.dataset(K = 3,phi = "linear", t = 1:5)
-
-example.t1 <- jags.parfit(cl, linear.data, c("positiverate","gamma0","gamma1"), mod.linear.phi.example,
-                         n.chains=4,n.adapt = 10000,thin = 5, n.iter = 100000,inits = list(chain1,chain2,chain3,chain4))
-
-gelman.diag(example.t1)
-
-example.point <- get.point.est(example.t1,"positiverate")
-example.CI <- get.CI(example.t1,"positiverate")
-
-unbiased.example.dat <- extract.unbiased.nona(linear.data,col = 1)
-
-example.t1.unb <- jags.parfit(cl, unbiased.example.dat, c("positiverate"), mod.linear.phi.example,
-                              n.chains=4,n.adapt = 10000,thin = 5, n.iter = 100000,inits = list(chain1,chain2,chain3,chain4))
-
-example.point.unb <- get.point.est(example.t1.unb,'positiverate')
-
-example.CI.unb <- get.CI(example.t1.unb,'positiverate')
-
-
-
-data.t1 <- data.frame(method = c(rep("method",5),rep("unbiased only",5)),
-                      posrate=c(example.point,example.point.unb),CI.L =c(example.CI$Lower,example.CI.unb$Lower),
-                      CI.U= c(example.CI$Upper,example.CI.unb$Upper),time = c(1:5,1:5))
-
-
-data.match <- data.frame(posrate = linear.data$params[8:(8+4)],time = 1:5,method = "data")
-
-ggplot(data = data.t1, aes(x= time, y = posrate,color = method))+ geom_point() + geom_line()+
-  geom_errorbar(aes(ymin = CI.L,ymax= CI.U),width = 0.25) + geom_point(data = data.match,aes(x = time,y = posrate))+
-  geom_line(data = data.match,aes(x = time,y = posrate)) + theme_minimal() + 
-  labs(x = "Time", y = "Positiverate",title = "Plot of Illustrative Example") + scale_color_manual(values = c("black","magenta","skyblue"))
-  
-                                    
-#no data                                                            
- 
-ggplot(data = data.t1, aes(x= time, y = posrate,color = method))+ geom_point() + geom_line()+
-  geom_errorbar(aes(ymin = CI.L,ymax= CI.U),width = 0.25)+ theme_minimal() + 
-  labs(x = "Time", y = "Positiverate",title = "Plot of Illustrative Example") + scale_color_manual(values = c("black","magenta","skyblue"))
-
-
-
-
-#amount of gain for method
-100*mean((example.CI.unb$Upper-example.CI.unb$Lower)/(example.CI$Upper-example.CI$Lower))
-
-#phi for said model
-# k = 2
-exp(linear.data$params[2] + linear.data$params[6]*1:5)
-
-
 
 #now run linear phi for each of the unbiased surveys
 
 
-line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1"), mod.linear.phi,
+line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1","sigmasq"), mod.linear.phi,
                            n.chains=4,n.adapt = 200000,thin = 5, n.iter = 50000,inits = list(chain1,chain2,chain3,chain4))
 
 #check convergence
@@ -352,7 +244,7 @@ point.ipsos <- get.point.est(line.ipsos,"positiverate")
 CI.ipsos <- get.CI(line.ipsos,"positiverate")
 
 
-line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamma1"), mod.linear.phi,
+line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamma1","sigmasq"), mod.linear.phi,
                              n.chains=4,n.adapt = 200000,thin = 5, n.iter = 50000,inits = list(chain1,chain2,chain3,chain4))
 
 gelman.diag(line.household)
@@ -361,7 +253,7 @@ point.household <- get.point.est(line.household,"positiverate")
 CI.household <- get.CI(line.household,"positiverate")
 
 
-line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1"), mod.linear.phi,
+line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1","sigmasq"), mod.linear.phi,
                              n.chains=4,n.adapt = 200000,thin = 5, n.iter = 50000,inits = list(chain1,chain2,chain3,chain4))
 
 
@@ -373,8 +265,8 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 
 #run actual method (linear)
 
-line.full <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1"), mod.linear.phi,
-                         n.chains=4,n.adapt = 600000,thin = 10, n.iter = 800000,inits = list(chain1,chain2,chain3,chain4))
+line.full <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","sigmasq"), mod.linear.phi,
+                         n.chains=4,n.adapt = 1000000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
 
 
 gelman.diag(line.full) 
@@ -384,7 +276,7 @@ CI.full <- get.CI(line.full,"positiverate")
 
 
 
-View(full.data.joined)
+#View(full.data.joined)
 #in order facebook->household -> axios
 full.data.joined$unb.lower.CI <- c(CI.facebook$Lower,CI.household$Lower,CI.ipsos$Lower)
 full.data.joined$unb.upper.CI <- c(CI.facebook$Upper,CI.household$Upper,CI.ipsos$Upper)
@@ -408,7 +300,7 @@ ggplot(data = full.data.joined,aes(x = end_date,y = posrate,col = mode,group = m
   geom_point(data = data.method,aes(x = end_date,y = posrate,group = "method",col = "method"))+
   geom_line(data = data.method,aes(x = end_date,y = posrate,group = "method",col = "method")) + 
   geom_errorbar(data = data.method,aes(ymin = CI.Lower,ymax = CI.Upper,group = "method",col = "method"),width = 1.75)+
-  theme_minimal() + labs(x = "Date",y = "% Vaccinated",title = "Loss of uncertainty for linear phi") +
+  theme_minimal() + labs(x = "Date",y = "% Vaccinated",title = expression(paste("Plot of Method for linear ",phi))) +
   geom_ribbon(data = benchmark.data,aes(x = as.Date(date),y = posrate,ymin = posrate*0.98,ymax = posrate*1.02,group = "benchmark",col = "benchmark"),alpha = 0.2)
 
 
@@ -416,8 +308,8 @@ ggplot(data = full.data.joined,aes(x = end_date,y = posrate,col = mode,group = m
 
 
 #try again with random walk for phi
-line.full.walk <- jags.parfit(cl, data.list, c("positiverate","gamma"), mod.walk.phi,
-                         n.chains=4,n.adapt = 500000,thin = 10, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+line.full.walk <- jags.parfit(cl, data.list, c("positiverate","gamma",'sigmasq'), mod.walk.phi,
+                         n.chains=4,n.adapt = 700000,thin = 10, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 gelman.diag(line.full.walk)
 
@@ -427,7 +319,7 @@ CI.walk <- get.CI(line.full.walk,'positiverate')
 
 #compare with constant phi
 
-line.const <- jags.parfit(cl, data.list, c("positiverate","gamma0"), mod.const.phi,
+line.const <- jags.parfit(cl, data.list, c("positiverate","gamma0",'sigmasq'), mod.const.phi,
                           n.chains=4,n.adapt = 500000,thin = 10, n.iter = 400000,list(chain1,chain2,chain3,chain4))
 
 gelman.diag(line.const)
@@ -448,39 +340,53 @@ data.linear.method <- data.linear.walk %>% filter(method != 'ipsos axios')
 
 ggplot(data = data.linear.method,aes(x = as.Date(time), y = posrate,group = method,colour = method))+
   geom_point() + geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0.25) + theme_minimal()+
-  labs(x= "Date",y ="% Vaccinated", title = "Comparison of different models for phi")
+  labs(x= "Date",y ="% Vaccinated", title = expression(paste("Comparison of different models for ",phi)))
 
 #plot gamma bias
 #get gammas
 
-const.gamma <- get.point.est(line.const,'gamma0')
+const.gamma <- get.point.est(line.const,"gamma0")
+const.CI <- get.CI(line.const,"gamma0")
 
 point.gamma0 <- get.point.est(line.full,"gamma0")
 point.gamma1 <- get.point.est(line.full,"gamma1")
+linear.CI.gamma0 <- get.CI(line.full,"gamma0")
+linear.CI.gamma1 <- get.CI(line.full,"gamma1")
+
+
+
+
+
+
+
 
 
 gamma.walk <- get.point.est(line.full.walk,"gamma")
 gamma.walk.CI <- get.CI(line.full.walk,'gamma')
+
 gamma2.walk.CI.L <- gamma.walk.CI$Lower[seq(1,40,by = 2)]
 gamma2.walk.CI.U <- gamma.walk.CI$Upper[seq(1,40,by = 2)]
 gamma3.walk.CI.L <- gamma.walk.CI$Lower[-seq(1,40,by = 2)]
-gamma3.walk.CI.L <- gamma.walk.CI$Lower[-seq(1,40,by = 2)]
+gamma3.walk.CI.U <- gamma.walk.CI$Upper[-seq(1,40,by = 2)]
 
 
-exp(gamma2.walk.CI.L)
-exp(gamma2.walk.CI.U)
 
 gamma2 <- gamma.walk[seq(1,40,by = 2)]
 gamma3 <- gamma.walk[-seq(1,40,by = 2)]
 
 phi.data <- data.frame(method = c(rep("constant",20),rep("constant",20),rep('linear',20),rep('linear',20),rep('walk',20),rep('walk',20)),survey = c(rep("household",20),rep("facebook",20),rep("household",20),rep("facebook",20),rep("household",20),rep("facebook",20)),
-                       phi = exp(c(rep(const.gamma[1],20),rep(const.gamma[2],20),point.gamma0[1] + point.gamma1[1]*(1:20),point.gamma0[2]+point.gamma1[2]*(1:20), gamma2,gamma3)),time = c(1:20,1:20,1:20,1:20,1:20,1:20))
+                       phi = exp(c(rep(const.gamma[1],20),rep(const.gamma[2],20),point.gamma0[1] + point.gamma1[1]*(0:19),point.gamma0[2]+point.gamma1[2]*(0:19), gamma2,gamma3)),
+                       time = c(1:20,1:20,1:20,1:20,1:20,1:20),
+                       CI.L= exp(c(rep(const.CI$Lower[1],20),rep(const.CI$Lower[2],20),linear.CI.gamma0$Lower[1] + linear.CI.gamma1$Lower[1]*0:19,linear.CI.gamma0$Lower[2] + linear.CI.gamma1$Lower[2]*1:20,gamma2.walk.CI.L,gamma3.walk.CI.L)),
+                       CI.U =exp(c(rep(const.CI$Upper[1],20),rep(const.CI$Upper[2],20),linear.CI.gamma0$Upper[1] + linear.CI.gamma1$Upper[1]*0:19,linear.CI.gamma0$Upper[2] + linear.CI.gamma1$Upper[2]*1:20,gamma2.walk.CI.U,gamma3.walk.CI.U)))
 
+#phi.data <- phi.data %>% filter(method %in% c("walk",'constant'))
 
 #phi.data.walk %>%
 ggplot(data = phi.data,aes(x=time,y = phi,color = method,alpha = survey))+geom_point() + 
-  scale_alpha_discrete(range = c(0.3,1))+ geom_line()+ 
-  theme_minimal() + labs(x="timepoint",y = expression(phi), title = "Plot of point estimates for Phi by survey and method")
+  scale_alpha_discrete(range = c(0.2,0.6))+ geom_line()+ 
+  geom_ribbon(aes(ymin = CI.L,ymax = CI.U)) +theme_minimal() + 
+    labs(x="timepoint",y = expression(phi), title = "Plot of point estimates for Phi by survey and method")
 
 
 #exact effeciency gain
@@ -489,5 +395,10 @@ axios.na <- is.na(data.list$Y[1,])
 gain <- 100*(axios.ipsos$unb.upper.CI-axios.ipsos$unb.lower.CI)/(CI.full$Upper[!axios.na]-CI.full$Lower[!axios.na])
 
 mean(gain)
+
+
+#walk vs linear effeciency
+
+mean(100*(CI.walk$Upper-CI.walk$Lower)/(CI.full$Upper-CI.full$Lower))
 
 
