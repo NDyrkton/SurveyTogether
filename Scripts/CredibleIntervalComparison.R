@@ -4,6 +4,7 @@ library(rjags)
 library(truncnorm)
 library(ggplot2)
 library(dclone)
+library(dplyr)
 source("Scripts/helperfunctions.R")
 data.list <- readRDS("ddc_list.Rdata")
 
@@ -265,7 +266,7 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 
 #run actual method (linear)
 
-line.full <- jags.parfit(cl, data.list, c("positiverate","gamma0","gamma1","sigmasq"), mod.linear.phi,
+line.full <- jags.parfit(cl, data.list, c("positiverate","phi","sigmasq"), mod.linear.phi,
                          n.chains=4,n.adapt = 1000000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
 
 
@@ -348,14 +349,22 @@ ggplot(data = data.linear.method,aes(x = as.Date(time), y = posrate,group = meth
 const.gamma <- get.point.est(line.const,"gamma0")
 const.CI <- get.CI(line.const,"gamma0")
 
-point.gamma0 <- get.point.est(line.full,"gamma0")
-point.gamma1 <- get.point.est(line.full,"gamma1")
-linear.CI.gamma0 <- get.CI(line.full,"gamma0")
-linear.CI.gamma1 <- get.CI(line.full,"gamma1")
+point.linear.phi <- get.point.est(line.full,"phi")
 
+linear.CI <- get.CI(line.full,"phi")
+linear.CI.23.L<- linear.CI$Lower[-seq(1,60,by =3)]
 
+linear.phi.CI.L.2 <-linear.CI.23.L[seq(1,40,by =2)] 
+linear.phi.CI.L.3 <-linear.CI.23.L[-seq(1,40,by =2)] 
 
+linear.CI.23.U <- linear.CI$Upper[-seq(1,60,by =3)]
+linear.phi.CI.U.2 <- linear.CI.23.U[seq(1,40,by =2)]
+linear.phi.CI.U.3 <- linear.CI.23.U[-seq(1,40,by =2)]
 
+point.linear.23 <- point.linear.phi[-seq(1,60,by =3)]
+
+point.linear.phi2 <- point.linear.23[seq(1,40,by =2)]
+point.linear.phi3 <- point.linear.23[-seq(1,40,by =2)]
 
 
 
@@ -375,18 +384,17 @@ gamma2 <- gamma.walk[seq(1,40,by = 2)]
 gamma3 <- gamma.walk[-seq(1,40,by = 2)]
 
 phi.data <- data.frame(method = c(rep("constant",20),rep("constant",20),rep('linear',20),rep('linear',20),rep('walk',20),rep('walk',20)),survey = c(rep("household",20),rep("facebook",20),rep("household",20),rep("facebook",20),rep("household",20),rep("facebook",20)),
-                       phi = exp(c(rep(const.gamma[1],20),rep(const.gamma[2],20),point.gamma0[1] + point.gamma1[1]*(0:19),point.gamma0[2]+point.gamma1[2]*(0:19), gamma2,gamma3)),
+                       phi = exp(c(rep(const.gamma[1],20),rep(const.gamma[2],20),log(point.linear.phi2),log(point.linear.phi3), gamma2,gamma3)),
                        time = c(1:20,1:20,1:20,1:20,1:20,1:20),
-                       CI.L= exp(c(rep(const.CI$Lower[1],20),rep(const.CI$Lower[2],20),linear.CI.gamma0$Lower[1] + linear.CI.gamma1$Lower[1]*0:19,linear.CI.gamma0$Lower[2] + linear.CI.gamma1$Lower[2]*1:20,gamma2.walk.CI.L,gamma3.walk.CI.L)),
-                       CI.U =exp(c(rep(const.CI$Upper[1],20),rep(const.CI$Upper[2],20),linear.CI.gamma0$Upper[1] + linear.CI.gamma1$Upper[1]*0:19,linear.CI.gamma0$Upper[2] + linear.CI.gamma1$Upper[2]*1:20,gamma2.walk.CI.U,gamma3.walk.CI.U)))
+                       CI.L= exp(c(rep(const.CI$Lower[1],20),rep(const.CI$Lower[2],20),log(linear.phi.CI.L.2),log(linear.phi.CI.L.3),gamma2.walk.CI.L,gamma3.walk.CI.L)),
+                       CI.U =exp(c(rep(const.CI$Upper[1],20),rep(const.CI$Upper[2],20),log(linear.phi.CI.U.2),log(linear.phi.CI.U.3),gamma2.walk.CI.U,gamma3.walk.CI.U)))
 
 #phi.data <- phi.data %>% filter(method %in% c("walk",'constant'))
 
 #phi.data.walk %>%
-ggplot(data = phi.data,aes(x=time,y = phi,color = method,alpha = survey))+geom_point() + 
-  scale_alpha_discrete(range = c(0.2,0.6))+ geom_line()+ 
-  geom_ribbon(aes(ymin = CI.L,ymax = CI.U)) +theme_minimal() + 
-    labs(x="timepoint",y = expression(phi), title = "Plot of point estimates for Phi by survey and method")
+ggplot(data = phi.data,aes(x=time,y = phi,color = method,shape = survey))+geom_point() + geom_line()+ 
+  geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) +theme_minimal()+
+    labs(x="timepoint",y = expression(phi), title = expression(paste("Plot of estimates of ",phi," by method and survey",sep = " ")))
 
 
 #exact effeciency gain

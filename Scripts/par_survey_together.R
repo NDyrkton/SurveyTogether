@@ -223,53 +223,53 @@ for(j in 1:NN){
   if(j %% 10 ==0) print(j)
   
   const.const <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.const.phi,
-                             n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                             n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j,"const x const"] <- pos.rate.const - get.mean(const.const)
   
   const.linear <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.linear.phi,
-                              n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                              n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "const x linear"] <- pos.rate.const - get.mean(const.linear)
   
   const.walk <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.walk.phi,
-                            n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                            n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "const x walk"] <- pos.rate.const - get.mean(const.walk)
   
   linear.const <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.const.phi,
-                              n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                              n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "linear x const"] <- pos.rate.linear - get.mean(linear.const)
   
   linear.linear <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.linear.phi,
-                               n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                               n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "linear x linear"] <- pos.rate.linear - get.mean(linear.linear)
   
   linear.walk <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.walk.phi,
-                             n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                             n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "linear x walk"] <- pos.rate.linear - get.mean(linear.walk)
   
   walk.const <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.const.phi,
-                            n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                            n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "walk x const"] <- pos.rate.walk - get.mean(walk.const)
   
   walk.linear <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.linear.phi,
-                             n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                             n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   
   walk.walk <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.walk.phi,
-                           n.chains=4,n.adapt = 15000,thin = 5, n.iter = 50000,inits = chains.init)
+                           n.chains=4,n.adapt = 25000,thin = 5, n.iter = 50000,inits = chains.init)
   error[j, "walk x walk"] <- pos.rate.walk - get.mean(walk.walk)
   
   #one unbiased survey only.
   #data x model
   
   unb.const<- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
-                                 n.chains=4,n.adapt = 5000,thin = 5, n.iter = 30000,inits = chains.init)
+                                 n.chains=4,n.adapt =20000,thin = 5, n.iter = 50000,inits = chains.init)
   only.unbiased[j, "const"] <- pos.rate.const - get.mean(unb.const)
   
   unb.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
-                                  n.chains=4,n.adapt = 5000,thin = 5, n.iter = 30000,inits = chains.init)
+                                  n.chains=4,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
   only.unbiased[j, "linear"] <- pos.rate.linear - get.mean(unb.linear)
   
   unb.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
-                                n.chains=4,n.adapt = 5000,thin = 5, n.iter = 30000,inits = chains.init)
+                                n.chains=4,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
   only.unbiased[j, "walk"] <- pos.rate.walk - get.mean(unb.walk)
 
 }
