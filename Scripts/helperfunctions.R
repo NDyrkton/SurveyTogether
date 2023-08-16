@@ -11,7 +11,7 @@ logit <- function(x){
 }
 
 #now fixed to be consistent with notation in paper.
-generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
+generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(1000,length(t)), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
   smalln <- t(matrix(rep(ns,K),ncol = K))
   posrate_t <- numeric(length(t))
@@ -101,7 +101,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     gamma_kt[1,] <- rep(0,length(t))
     #prior
     
-    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = 1/10)
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/200))
     
     
     
