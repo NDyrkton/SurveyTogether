@@ -210,6 +210,126 @@ for (k in 2:K){
 }')
 
 
+
+mod.linear.phi.2 <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+for (k in 2:K){
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k] + gamma1*times[k,t])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+
+
+
+for(t in 2:T){
+
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],)
+	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+#for(t in 1:T){
+          #normal approximation
+# P[t] ~ dbin(positiverate[t], N)
+#}
+
+
+for (k in 1:K){
+	for (t in 1:T){
+    #		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+sigmasq ~ dnorm(0, 1/5)T(0,);
+
+for (k in 2:K){
+	gamma0[k] ~ dnorm(0, 1);
+}
+	gamma1 ~ dnorm(0, 1/0.25);
+}')
+
+
+
+
+mod.walk.phi.2 <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+		logodds[1,i] <- 1
+}
+
+
+gamma[1] ~ dnorm(gammafull,1/pisq)
+  
+for(k in 2:K){
+  logodds[k,1] <- gamma[1]+gamma0[k]
+  phi[k,1] <- exp(gamma[1]+gamma0[k])
+}
+  
+for(t in 2:T){
+
+  gamma[t] ~ dnorm(gamma[t-1],1/pisq)
+  
+  for(k in 2:K){
+    logodds[k,t] <- gamma[t] + logodds[k,t-1]
+    phi[k,t] <- exp(logodds[k,t])
+  
+  }
+  
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],);
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+#for(t in 1:T){
+	#P[t] ~ dbin(positiverate[t], N)
+#}
+
+for (k in 1:K){
+	for (t in 1:T){
+		
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+	}
+}
+
+#priors
+theta0 ~ dnorm(-2, 1);
+sigmasq ~ dnorm(0, 1/5)T(0,);
+pisq ~ dnorm(0, 1/5)T(0,);
+
+for (k in 2:K){
+	gamma0[k] ~ dnorm(0, 1);
+
+}
+
+gammafull~ dnorm(0,1)
+
+
+}')
+
+
 #get unbiased data with no NAs
 ipsos.dat <- extract.unbiased.nona(data.list,col = 1)
 household.dat <- extract.unbiased.nona(data.list,col= 2)
@@ -266,11 +386,11 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 
 #run actual method (linear)
 
-line.full <- jags.parfit(cl, data.list, c("positiverate","phi","sigmasq"), mod.linear.phi,
+line.full <- jags.parfit(cl, data.list, c("positiverate","phi","sigmasq"), mod.linear.phi.2,
                          n.chains=4,n.adapt = 1000000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
 
 
-gelman.diag(line.full) 
+#gelman.diag(line.full) 
 
 point.full <- get.point.est(line.full,"positiverate")
 CI.full <- get.CI(line.full,"positiverate")
@@ -309,10 +429,10 @@ ggplot(data = full.data.joined,aes(x = end_date,y = posrate,col = mode,group = m
 
 
 #try again with random walk for phi
-line.full.walk <- jags.parfit(cl, data.list, c("positiverate","gamma",'sigmasq'), mod.walk.phi,
+line.full.walk <- jags.parfit(cl, data.list, c("positiverate","logodds",'sigmasq'), mod.walk.phi.2,
                          n.chains=4,n.adapt = 700000,thin = 10, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
-gelman.diag(line.full.walk)
+#gelman.diag(line.full.walk)
 
 point.walk <- get.point.est(line.full.walk,'positiverate')
 CI.walk <- get.CI(line.full.walk,'positiverate')
@@ -370,8 +490,8 @@ point.linear.phi3 <- point.linear.23[-seq(1,40,by =2)]
 
 
 
-gamma.walk <- get.point.est(line.full.walk,"gamma")
-gamma.walk.CI <- get.CI(line.full.walk,'gamma')
+gamma.walk <- get.point.est(line.full.walk,"logodds")
+gamma.walk.CI <- get.CI(line.full.walk,'logodds')
 
 gamma2.walk.CI.L <- gamma.walk.CI$Lower[seq(1,40,by = 2)]
 gamma2.walk.CI.U <- gamma.walk.CI$Upper[seq(1,40,by = 2)]
@@ -405,7 +525,7 @@ gain <- 100*(axios.ipsos$unb.upper.CI-axios.ipsos$unb.lower.CI)/(CI.full$Upper[!
 mean(gain)
 
 
-#walk vs linear effeciency
+#walk vs linear efficiency
 
 mean(100*(CI.walk$Upper-CI.walk$Lower)/(CI.full$Upper-CI.full$Lower))
 
