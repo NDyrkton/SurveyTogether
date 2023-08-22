@@ -28,7 +28,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.5))
+  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0.25, sd = sqrt(0.25))
   theta0 <- rnorm(1,mean =0, sd = sqrt(0.5))
   
   if(phi == "constant"){
@@ -192,7 +192,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.5)T(0,);
+sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -233,7 +233,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.5)T(0,);
+sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -283,7 +283,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.5)T(0,);
+sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
 pisq ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
@@ -317,27 +317,7 @@ dcoptions("verbose"=F)#mute the output of dlclone
 
 
 
-#start parallel
-cl <- makePSOCKcluster(4)
 
-clusterEvalQ(cl, library(dclone))
-load.module("lecuyer")
-parLoadModule(cl,"lecuyer")
-
-
-NN <- 500
-
-
-error <- matrix(NA,nrow = NN, ncol = 9)
-colnames(error) <- c("const x const","const x linear", "const x walk",
-                     "linear x const", "linear x linear","linear x walk",
-                     "walk x const", "walk x linear", "walk x walk")
-
-only.unbiased <-  matrix(NA, nrow = NN, ncol = 3)
-colnames(only.unbiased) <- c("const","linear", "walk")
-
-
-time = Sys.time()
 
 
 generate.data.replicates <- function(phi = "constant",t = 1:5,NN){
@@ -385,12 +365,23 @@ data.walk  <- generate.data.replicates(phi = "walk", NN = 500)
 
 
 #check if bad data exists and replace.
-check1 <- check.bad.data(data.const)
-check2 <- check.bad.data(data.linear,phi = 'linear')
-check3 <- check.bad.data(data.linear,phi = 'walk')
+data.const <- check.bad.data(data.const,phi = "constant")
+data.linear <- check.bad.data(data.linear,phi = 'linear')
+data.walk <- check.bad.data(data.walk,phi = 'walk')
 
 
 #all checks pass
+
+
+
+#start parallel
+cl <- makePSOCKcluster(4)
+
+clusterEvalQ(cl, library(dclone))
+load.module("lecuyer")
+parLoadModule(cl,"lecuyer")
+
+NN <- 500
 
 
 run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti = 5){
@@ -440,35 +431,35 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     error[j,"const x const"] <- pos.rate.const - get.mean(const.const,ti)
     
     const.linear <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.linear.phi,
-                                n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                                n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "const x linear"] <- pos.rate.const - get.mean(const.linear,ti)
     
     const.walk <- jags.parfit(cl, data.const.phi[-8], "positiverate", mod.walk.phi,
-                              n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                              n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "const x walk"] <- pos.rate.const - get.mean(const.walk,ti)
     
     linear.const <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.const.phi,
-                                n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                                n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "linear x const"] <- pos.rate.linear - get.mean(linear.const,ti)
     
     linear.linear <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.linear.phi,
-                                 n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                                 n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "linear x linear"] <- pos.rate.linear - get.mean(linear.linear,ti)
     
     linear.walk <- jags.parfit(cl, data.linear.phi[-8], "positiverate", mod.walk.phi,
-                               n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                               n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "linear x walk"] <- pos.rate.linear - get.mean(linear.walk,ti)
     
     walk.const <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.const.phi,
-                              n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                              n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "walk x const"] <- pos.rate.walk - get.mean(walk.const,ti)
     
     walk.linear <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.linear.phi,
-                               n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                               n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "walk x linear"] <- pos.rate.walk - get.mean(walk.linear,ti)
     
     walk.walk <- jags.parfit(cl, data.walk.phi[-8], "positiverate", mod.walk.phi,
-                             n.chains=4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
+                             n.chains=4,n.adapt = 25000,thin = 5, n.iter = 60000,inits = chains.init)
     error[j, "walk x walk"] <- pos.rate.walk - get.mean(walk.walk,ti)
     
     #one unbiased survey only.
@@ -519,6 +510,6 @@ ggplot(data = results.plot.final, aes(x = data, y = RMSE,group = model,colour = 
 stopCluster(cl)
 
 
-write.csv(results.plot.final,"Results/RMSE_plot_t5_500.csv",row.names = F)
+write.csv(results.plot.final,"RMSE_plot_t5_500.csv",row.names = F)
 
 

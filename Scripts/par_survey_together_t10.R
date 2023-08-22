@@ -30,7 +30,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.25))
+  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0.25, sd = sqrt(0.25))
   theta0 <- rnorm(1,mean =0, sd = sqrt(0.5))
   
   if(phi == "constant"){
@@ -194,7 +194,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.25)T(0,);
+sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -235,7 +235,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.25)T(0,);
+sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -285,7 +285,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.25)T(0,);
+sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
 pisq ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
@@ -315,17 +315,10 @@ get.mean <- function(mcmc.obj,timepoint){
   return(summary(mcmc.obj)$statistics[,1][timepoint])
 }
 
-dcoptions("verbose"=F)#mute the output of dlclone
+dcoptions("verbose"=F)#mute the output of dclone
 
 
 
-#start parallel
-
-
-NN <- 500
-
-
-time = Sys.time()
 
 
 generate.data.replicates <- function(phi = "constant",t = 1:5,NN,tol = 3){
@@ -375,16 +368,16 @@ data.walk  <- generate.data.replicates(phi = "walk", NN = 500,t = 1:10,tol = 4)
 #check if bad data exists and replace.
 data.const <- check.bad.data(data.const,phi = "constant",t = 1:10,tol = 4)
 data.linear <- check.bad.data(data.linear,phi = 'linear',t = 1:10,tol =4)
-data.walk <- check.bad.data(data.linear,phi = 'walk',t = 1:10,tol = 4)
+data.walk <- check.bad.data(data.walk,phi = 'walk',t = 1:10,tol = 4)
 
 
-#all checks pass
 
 #third
 data.const <- check.bad.data(data.const,phi = "constant",t = 1:10,tol = 4)
 data.linear <- check.bad.data(data.linear,phi = 'linear',t = 1:10,tol =4)
-data.walk <- check.bad.data(data.linear,phi = 'walk',t = 1:10,tol = 4)
+data.walk <- check.bad.data(data.walk,phi = 'walk',t = 1:10,tol = 4)
 
+#all checks pass
 
 cl <- makePSOCKcluster(4)
 
@@ -519,6 +512,6 @@ ggplot(data = results.plot.final, aes(x = data, y = RMSE,group = model,colour = 
 stopCluster(cl)
 
 
-write.csv(results.plot.final,"Results/RMSE_plot_t10_500.csv",row.names = F)
+write.csv(results.plot.final,"RMSE_plot_t10_500.csv",row.names = F)
 
 

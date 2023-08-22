@@ -276,7 +276,7 @@ for (i in 1:T){
 }
 
 
-gamma[1] ~ dnorm(gammafull,1/pisq)
+gamma[1] <- 0
   
 for(k in 2:K){
   logodds[k,1] <- gamma[1]+gamma0[k]
@@ -324,7 +324,6 @@ for (k in 2:K){
 
 }
 
-gammafull~ dnorm(0,1)
 
 
 }')
@@ -472,7 +471,7 @@ const.CI <- get.CI(line.const,"gamma0")
 point.linear.phi <- get.point.est(line.full,"phi")
 
 linear.CI <- get.CI(line.full,"phi")
-linear.CI.23.L<- linear.CI$Lower[-seq(1,60,by =3)]
+linear.CI.23.L <- linear.CI$Lower[-seq(1,60,by =3)]
 
 linear.phi.CI.L.2 <-linear.CI.23.L[seq(1,40,by =2)] 
 linear.phi.CI.L.3 <-linear.CI.23.L[-seq(1,40,by =2)] 
