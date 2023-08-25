@@ -148,13 +148,40 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(1000,length(t)
 }
 
 
-generate.model.ests <- function(model.string, data.list, params ,n.chains =3, n.iter = 25000, thin = 10){
+
+extract.unbiased.nona <- function(datalist,col = 1){
+  K = 1
+  Y <- datalist$Y[col,]
   
-  jags.mod <- jags.model(textConnection(model.string), 
-                         data = data.list, n.chains = n.chains, n.adapt = 10000,quiet = T)
+  smalln <- datalist$smalln[col,]
+  smalln <- smalln[!is.na(Y)]
   
-  samps <- coda.samples(jags.mod, params, n.iter = n.iter, thin = 10, progress.bar = "none")
-  #as of right now the estimate is a mean.
-  bayes.est <- summary(samps)$statistics[,1]
-  return(bayes.est)
+  Y <- Y[!is.na(Y)]
+  T <- length(Y)
+  times <- 1:T
+  new.list <- list(K = K, 
+                   times = matrix(times,ncol = T), N = datalist$N, T = T,
+                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+  
+  return(new.list)
+}
+
+
+get.point.est <- function(line,var){
+  
+  point.est <- summary(line)$statistics[,1]
+  #variable of interest
+  return(point.est[grep(var,names(point.est))])
+}
+
+get.CI <- function(line,var){
+  
+  lower.quantile <- summary(line)$quantile[,1]
+  upper.quantile <- summary(line)$quantile[,5]
+  
+  #extract variable of interest
+  lower.quantile <- lower.quantile[grep(var,names(lower.quantile))] 
+  upper.quantile <- upper.quantile[grep(var,names(upper.quantile))] 
+  
+  return(list(Lower = lower.quantile,Upper = upper.quantile))
 }
