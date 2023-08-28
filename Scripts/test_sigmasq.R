@@ -22,7 +22,7 @@ logit <- function(x){
 
 theta0 <- -2
 
-sigmasq = rtruncnorm(1000,mean = 0.25, sd = sqrt(0.25),a = 0, b= Inf)
+sigmasq = rtruncnorm(1000,mean = 0, sd = sqrt(0.5),a = 0, b= Inf)
 
 hist(sigmasq)
 
@@ -33,7 +33,7 @@ quantile(inv.logit(rnorm(50000,mean = 0,sd = sqrt(0.511))),seq(0,1,0.1))-inv.log
 
 result <- numeric(10000)
 
-sigmasq = rtruncnorm(10000,mean = 0.5, sd = sqrt(0.25),a = 0, b= Inf)
+sigmasq = rtruncnorm(10000,mean = 0, sd = sqrt(0.1),a = 0, b= Inf)
 
 for(i in 1:10000){
   

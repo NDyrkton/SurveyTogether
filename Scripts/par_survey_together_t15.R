@@ -30,7 +30,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0.25, sd = sqrt(0.25))
+  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
   theta0 <- rnorm(1,mean =0, sd = sqrt(0.5))
   
   if(phi == "constant"){
@@ -194,7 +194,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
+sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -229,7 +229,7 @@ for(t in 1:T){
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t])
 	}
 }
 
@@ -279,13 +279,13 @@ for(t in 1:T){
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t])
 	}
 }
 
 #priors
 theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0.25, 1/0.25)T(0,);
+sigmasq ~ dnorm(0, 1/0.1)T(0,);
 pisq ~ dnorm(0, 1/0.01)T(0,);
 
 for (k in 1:K){
@@ -381,12 +381,6 @@ data.const <- check.bad.data(data.const,phi = "constant",t = 1:15,tol = 4)
 data.linear <- check.bad.data(data.linear,phi = 'linear',t = 1:15,tol =4)
 data.walk <- check.bad.data(data.walk,phi = 'walk',t = 1:15,tol = 4)
 
-#4th
-data.const <- check.bad.data(data.const,phi = "constant",t = 1:15,tol = 4)
-data.linear <- check.bad.data(data.linear,phi = 'linear',t = 1:15,tol =4)
-data.walk <- check.bad.data(data.walk,phi = 'walk',t = 1:15,tol = 4)
-
-
 #all checks pass
 
 cl <- makePSOCKcluster(4)
@@ -399,7 +393,7 @@ NN <- 500
 
 
 
-
+print("T = 15 simulations")
 
 run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti = 5){
   
