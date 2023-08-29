@@ -37,7 +37,7 @@ sigmasq = rtruncnorm(10000,mean = 0, sd = sqrt(0.1),a = 0, b= Inf)
 
 for(i in 1:10000){
   
-  result[i] <- inv.logit(rnorm(1,mean = 0,sd = sqrt(sigmasq[i])))-inv.logit(0) 
+  result[i] <- inv.logit(rnorm(1,mean = -2,sd = sqrt(sigmasq[i])) +2) 
   
 }
 

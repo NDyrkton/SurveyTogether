@@ -182,8 +182,8 @@ line.linear <- jags.parfit(cl, data.list.extended, c("positiverate","sigmasq","p
                          n.chains=4,n.adapt = 1000000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
 
 
-line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.phi),
-                         n.chains=4,n.adapt = 800000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
+line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.linear.phi),
+                         n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
 line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
