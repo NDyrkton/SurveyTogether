@@ -20,27 +20,27 @@ logit <- function(x){
 
 
 
-theta0 <- -2
-
-sigmasq = rtruncnorm(1000,mean = 0, sd = sqrt(0.5),a = 0, b= Inf)
-
-hist(sigmasq)
-
-inv.logit(theta0)
-
-quantile(inv.logit(rnorm(50000,mean = 0,sd = sqrt(0.511))),seq(0,1,0.1))-inv.logit(0)
-
-
 result <- numeric(10000)
+result_i_1 <- numeric(10000)
 
 sigmasq = rtruncnorm(10000,mean = 0, sd = sqrt(0.1),a = 0, b= Inf)
 
 for(i in 1:10000){
+  logitpositiverate0 <- rnorm(1,0,sd = sqrt(sigmasq[i]))
   
-  result[i] <- inv.logit(rnorm(1,mean = -2,sd = sqrt(sigmasq[i])) +2) 
+  positiverate0 <- inv.logit(logitpositiverate)
+  result_i_1[i] <- positiverate0
+  
+  logitpositiverate <- rnorm(1,logitpositiverate0,sd = sqrt(sigmasq[i]))
+  positiverate <- inv.logit(logitpositiverate)
+  
+  result[i] <-  positiverate
   
 }
 
-quantile(result,seq(0,1,0.05))
+quantile(result-result_i_1,seq(0,1,0.05))
 
-         
+
+
+x <- inv.logit(rnorm(10000,mean = 0,sd = sqrt(sigmasq)))
+quantile(x-inv.logit(0),seq(0,1,0.05))         

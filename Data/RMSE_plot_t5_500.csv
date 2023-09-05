@@ -1,0 +1,13 @@
+"data","model","RMSE"
+"const","const",2.97988409276272
+"const","linear",3.1043979144046
+"const","walk",3.1101489693622
+"linear","const",3.44104242683581
+"linear","linear",3.2997438352617
+"linear","walk",3.35510377220732
+"walk","const",3.9386743057212
+"walk","linear",3.520652544539
+"walk","walk",3.46229601194984
+"const","unbiased",3.87958167426349
+"linear","unbiased",4.20414785337871
+"walk","unbiased",4.00193144826441
