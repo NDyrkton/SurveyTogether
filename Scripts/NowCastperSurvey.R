@@ -106,7 +106,7 @@ facebook.dat <- extract.unbiased.nona(data.list,col = 3)
 
 
 
-cl <- makePSOCKcluster(4)
+cl <- makePSOCKcluster(8)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -133,6 +133,15 @@ full.posrates <- numeric(fb.len)
 full.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 dcoptions("verbose"=F)#mute the output of dlclone
 
+sigmasq <- numeric(fb.len)
+sigmasq.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
+
+phi.household <- numeric(fb.len)
+phi.household.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
+
+phi.facebook <- numeric(fb.len)
+phi.facebook.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
+
 
 for(t in 1:fb.len){
   print(t)
@@ -145,8 +154,16 @@ for(t in 1:fb.len){
                 .RNG.seed = c(371+4*t))
   chain4<- list(.RNG.name = "base::Super-Duper", 
                 .RNG.seed = c(482+5*t))
+  chain5<- list(.RNG.name = "base::Wichmann-Hill", 
+                .RNG.seed = c(159+6*t))
+  chain6<- list(.RNG.name = "base::Super-Duper", 
+                .RNG.seed = c(260+7*t))
+  chain7<- list(.RNG.name = "base::Wichmann-Hill", 
+                .RNG.seed = c(371+8*t))
+  chain8<- list(.RNG.name = "base::Super-Duper", 
+                .RNG.seed = c(482+9*t))
   
-  inits.chains <- list(chain1,chain2,chain3,chain4)
+  inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
   
   
   data.t <- extract.t(data.list,t)
@@ -158,7 +175,7 @@ for(t in 1:fb.len){
     ipsos.t <- extract.t(ipsos.dat,t)
     
     line.ipsos <- jags.parfit(cl,ipsos.t, c("positiverate"), custommodel(mod.linear.phi),
-                              n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+                              n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
     
     ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")[t]
     
@@ -177,7 +194,7 @@ for(t in 1:fb.len){
     household.t <- extract.t(household.dat,t)
     
     line.household <- jags.parfit(cl,household.t, c("positiverate"), custommodel(mod.linear.phi),
-                                  n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+                                  n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
     
     household.posrates[t] <- get.point.est(line.household,"positiverate")[t]
     household.CIs <- get.CI(line.household,"positiverate")
@@ -194,7 +211,7 @@ for(t in 1:fb.len){
   facebook.t <- extract.t(facebook.dat,t)
   
   line.facebook <- jags.parfit(cl, facebook.t, c("positiverate"), custommodel(mod.linear.phi),
-                               n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+                               n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
   
   facebook.posrates[t] <- get.point.est(line.facebook,"positiverate")[t]
   
@@ -208,15 +225,15 @@ for(t in 1:fb.len){
   
   
   
-  line.full <- jags.parfit(cl, data.t, c("positiverate"), custommodel(mod.walk.phi),
-                           n.chains=4,n.adapt = 250000,thin = 5, n.iter = 200000
+  line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma"), custommodel(mod.walk.phi),
+                           n.chains=8,n.adapt = 250000,thin = 5, n.iter = 200000
                            ,inits = inits.chains)
   
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
     print("failed")
     
     line.full <- jags.parfit(cl, data.t, c("positiverate","gamma0"), custommodel(mod.walk.phi),
-                             n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = inits.chains)
+                             n.chains=8,n.adapt = 500000,thin = 5, n.iter = 500000,inits = inits.chains)
     
     gelman.diag(line.full)
     
@@ -225,35 +242,33 @@ for(t in 1:fb.len){
   full.posrates[t] <- get.point.est(line.full,"positiverate")[t]
   
   full.CIs <- get.CI(line.full,"positiverate")
-  
-  
   full.CI$CI.U[t] <- full.CIs$Upper[t]
   full.CI$CI.L[t] <- full.CIs$Lower[t]
   
   
+  #get sigmasq ests
+  sigmasq[t] <- get.point.est(line.full,'sigmasq')
+  sigmasq.CIs <-  get.CI(line.full,'sigmasq')
+  
+  sigmasq.CI$CI.L[t] <- sigmasq.CIs$Lower
+  sigmasq.CI$CI.U[t] <- sigmasq.CIs$Upper
+  
+  #phi ests
+  phi.all <- tail(exp( get.point.est(line.full,'gamma')),2) 
+  phi.household[t] <- phi.all[1]
+  phi.facebook[t] <- phi.all[2]
+  
+  
+  
+  phi.CIs <- lapply(get.CI(line.full,'gamma'),function(x){tail(exp(x),2)})
+  
+  phi.household.CI$CI.L[t] <- phi.CIs$Lower[1] 
+  phi.household.CI$CI.U[t] <- phi.CIs$Upper[1] 
+  
+  phi.facebook.CI$CI.L[t] <- phi.CIs$Lower[2] 
+  phi.facebook.CI$CI.U[t] <- phi.CIs$Upper[2]
+  
 }
-
-full.data.joined <- read.csv("Data/full_data_joined_ddc_vaccine.csv")
-benchmark.data <- read.csv("Data/Benchmark_clean.csv")
-
-
-full.data.joined$unb.lower.CI <- c(facebook.CI$Lower,household.CI$Lower,ipsos.CI$Lower)
-full.data.joined$unb.upper.CI <- c(facebook.CI$Upper,household.CI$Upper,ipsos.CI$Upper)
-full.data.joined$pointest <- c(facebook.posrates,household.posrates,ipsos.posrates)
-
-method.dates <- full.data.joined$end_date[full.data.joined$mode=='facebook']
-
-method.data <- data.frame(mode= rep("method",20),end_date = method.dates,pointest= full.posrates,CI.L=full.CI$CI.L,CI.U = full.CI$CI.U)
-
-plot.data <- full.data.joined %>% select(mode,end_date,CI.L,CI.U,pointest) %>% rbind(method.data)
-
-
-ggplot(plot.data,aes(x = as.Date(end_date),y = pointest, colour = mode)) + geom_point()+
-  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U))+  theme_minimal() + labs(x = "Date",y = "% Vaccinated",title = expression(paste("Plot of Method for linear ",phi))) +
-  geom_ribbon(data = benchmark.data,aes(x = as.Date(date),y = posrate,ymin = posrate*0.98,ymax = posrate*1.02,group = "benchmark",col = "benchmark"),alpha = 0.2)
-
-
-
 
 
 
@@ -302,6 +317,19 @@ fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ym
 
 
 
+
+
+
+sigmasq.df <- data.frame(ymd = ref.dates, point.est = sigmasq, CI.L = sigmasq.CI$CI.L,CI.U = sigmasq.CI$CI.U)
+phi.df <- data.frame(ymd = c(ref.dates,ref.dates), survey = c(rep("household",48),rep("facebook",48)),
+                     point.est = c(phi.household,phi.facebook),CI.L = c(phi.household.CI$CI.L,phi.facebook.CI$CI.L), CI.U = c(phi.household.CI$CI.U,phi.facebook.CI$CI.U))
+
+
+ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U)) + 
+  theme_minimal() + labs(x = "date", y = expression(sigma^2),title = "Plot of estimate of Sigma squared over time") 
+
+
+ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_errorbar(aes(ymin = ))
 
 #mean gain
 mean(ax_df$vax_ub-ax_df$vax_lb)/mean(method_df$CI.U-method_df$CI.L)
