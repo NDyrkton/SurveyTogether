@@ -143,6 +143,10 @@ phi.facebook <- numeric(fb.len)
 phi.facebook.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 
 
+
+pi.est <- numeric(fb.len)
+pi.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
+
 for(t in 1:fb.len){
   print(t)
   
@@ -225,14 +229,14 @@ for(t in 1:fb.len){
   
   
   
-  line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma"), custommodel(mod.walk.phi),
+  line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pi"), custommodel(mod.walk.phi),
                            n.chains=8,n.adapt = 250000,thin = 5, n.iter = 200000
                            ,inits = inits.chains)
   
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
     print("failed")
     
-    line.full <- jags.parfit(cl, data.t, c("positiverate","gamma0"), custommodel(mod.walk.phi),
+    line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pi"), custommodel(mod.walk.phi),
                              n.chains=8,n.adapt = 500000,thin = 5, n.iter = 500000,inits = inits.chains)
     
     gelman.diag(line.full)
@@ -267,8 +271,19 @@ for(t in 1:fb.len){
   
   phi.facebook.CI$CI.L[t] <- phi.CIs$Lower[2] 
   phi.facebook.CI$CI.U[t] <- phi.CIs$Upper[2]
+  #pi ests
+  
+  pi.est[t] <- get.point.est(line.full,'pi')
+  pi.CIs <- get.CI(line.full,'pi')
+  
+  pi.CI$CI.L[t] <- pi.CIs$Lower
+  pi.CI$CI.U[t] <- pi.CIS$Upper
   
 }
+
+
+
+
 
 
 
@@ -345,7 +360,8 @@ write.csv(method_df,"Data/nowcast_rw.csv",row.names = F)
 
 
 
-
+####
+#rerun but with 1 survey added each to compare effective sample size##
 
 
 

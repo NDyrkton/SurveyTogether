@@ -23,7 +23,7 @@ logit <- function(x){
 result <- numeric(10000)
 result_i_1 <- numeric(10000)
 
-sigmasq = rtruncnorm(10000,mean = 0, sd = sqrt(0.1),a = 0, b= Inf)
+sigmasq = rtruncnorm(10000,mean = 0, sd = sqrt(0.5),a = 0, b= Inf)
 
 for(i in 1:10000){
   logitpositiverate0 <- rnorm(1,0,sd = sqrt(sigmasq[i]))
@@ -44,3 +44,16 @@ quantile(result-result_i_1,seq(0,1,0.05))
 
 x <- inv.logit(rnorm(10000,mean = 0,sd = sqrt(sigmasq)))
 quantile(x-inv.logit(0),seq(0,1,0.05))         
+
+
+sigmasq = rtruncnorm(100000,mean = 0, sd = sqrt(),a = 0, b= Inf)
+
+
+pi <- rtruncnorm(10000,mean = 0,sd = sqrt(0.1),a = 0, b = Inf)
+
+x2 <- exp(rnorm(100000,mean = 0,sd = sqrt(pi)))
+quantile(x2-exp(0),seq(0,1,0.05))
+
+x3 <- inv.logit(rnorm(10000,mean = 0, sd = 0.5))
+
+quantile(x3,seq(0,1,0.05))
