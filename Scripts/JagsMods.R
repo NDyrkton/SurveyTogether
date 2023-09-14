@@ -43,7 +43,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-sigmasq ~ dnorm(0, 1/5)T(0,);
+sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -95,7 +95,7 @@ for (k in 1:K){
 
 #priors
 theta0 ~ dnorm(-2, 1);
-sigmasq ~ dnorm(0, 1/5)T(0,);
+sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);

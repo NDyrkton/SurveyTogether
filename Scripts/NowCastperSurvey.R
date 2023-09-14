@@ -229,14 +229,14 @@ for(t in 1:fb.len){
   
   
   
-  line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pi"), custommodel(mod.walk.phi),
+  line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
                            n.chains=8,n.adapt = 250000,thin = 5, n.iter = 200000
                            ,inits = inits.chains)
   
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
     print("failed")
     
-    line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pi"), custommodel(mod.walk.phi),
+    line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
                              n.chains=8,n.adapt = 500000,thin = 5, n.iter = 500000,inits = inits.chains)
     
     gelman.diag(line.full)
@@ -277,7 +277,7 @@ for(t in 1:fb.len){
   pi.CIs <- get.CI(line.full,'pi')
   
   pi.CI$CI.L[t] <- pi.CIs$Lower
-  pi.CI$CI.U[t] <- pi.CIS$Upper
+  pi.CI$CI.U[t] <- pi.CIs$Upper
   
 }
 
