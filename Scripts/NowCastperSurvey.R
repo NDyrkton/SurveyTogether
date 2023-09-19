@@ -95,6 +95,24 @@ get.CI <- function(line,var){
 
 }
 
+extract.surveys <- function(datalist,row = 1){
+  #function extracts given surveys from data list
+  #same as extract.nona but does not shorten
+
+  K = 1
+  Y <- datalist$Y[row,]
+  
+  smalln <- datalist$smalln[row,]
+  times <- datalist$times[row,]
+  T <- datalist$T
+  
+  new.list <- list(K = K, 
+                   times = matrix(times,ncol = T), N = datalist$N, T = T,
+                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+  return(new.list)
+  
+}
+
 
 
 
@@ -103,22 +121,20 @@ household.dat <- extract.unbiased.nona(data.list,col= 2)
 facebook.dat <- extract.unbiased.nona(data.list,col = 3)
 
 
-
-
-
 cl <- makePSOCKcluster(8)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
+dcoptions("verbose"=F)#mute the output of dclone
 
 ipsos.len <- length(ipsos.dat$Y)
 fb.len <- length(facebook.dat$Y)
 household.len <- length(household.dat$Y)
 
 
-#now casts for each.
+#now casts for each parameter to be estimated.
 ipsos.posrates <- numeric(ipsos.len)
 ipsos.CI <- list(CI.U=numeric(ipsos.len),CI.L = numeric(ipsos.len))
 
@@ -128,10 +144,17 @@ household.CI <- list(CI.U=numeric(household.len),CI.L = numeric(household.len))
 facebook.posrates <- numeric(fb.len)
 facebook.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 
-
+#all three surveys
 full.posrates <- numeric(fb.len)
 full.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
-dcoptions("verbose"=F)#mute the output of dlclone
+
+#axios + fb
+full.fb.posrates <- numeric(fb.len)
+full.fb.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
+
+#axios + hp
+full.hp.posrates <- numeric(fb.len)
+full.hp.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 
 sigmasq <- numeric(fb.len)
 sigmasq.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
@@ -142,10 +165,12 @@ phi.household.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 phi.facebook <- numeric(fb.len)
 phi.facebook.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 
+pisq.est <- numeric(fb.len)
+pisq.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 
 
-pi.est <- numeric(fb.len)
-pi.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
+data.list.fb <- extract.surveys(data.list,c(1,3))
+data.list.hp <- extract.surveys(data.list,c(1,2))
 
 for(t in 1:fb.len){
   print(t)
@@ -169,8 +194,11 @@ for(t in 1:fb.len){
   
   inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
   
-  
+
   data.t <- extract.t(data.list,t)
+  data.list.fb.t <- extract.t(data.list.fb,t)
+  data.list.hp.t <- extract.t(data.list.hp,t)
+
   
 
   ###ipsos run##
@@ -230,8 +258,14 @@ for(t in 1:fb.len){
   
   
   line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                           n.chains=8,n.adapt = 250000,thin = 5, n.iter = 200000
+                           n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
                            ,inits = inits.chains)
+  line.fb.axios <- jags.parfit(cl, data.list.fb.t, c("positiverate"), custommodel(mod.walk.phi),
+                               n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
+                               ,inits = inits.chains)
+  line.hp.axios <- jags.parfit(cl, data.list.hp.t, c("positiverate"), custommodel(mod.walk.phi),
+                               n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
+                               ,inits = inits.chains)
   
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
     print("failed")
@@ -239,7 +273,7 @@ for(t in 1:fb.len){
     line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
                              n.chains=8,n.adapt = 500000,thin = 5, n.iter = 500000,inits = inits.chains)
     
-    gelman.diag(line.full)
+    print(gelman.diag(line.full))
     
   }
   
@@ -248,6 +282,21 @@ for(t in 1:fb.len){
   full.CIs <- get.CI(line.full,"positiverate")
   full.CI$CI.U[t] <- full.CIs$Upper[t]
   full.CI$CI.L[t] <- full.CIs$Lower[t]
+  
+  
+  #for added fb, and added hp
+  full.fb.posrates[t] <- get.point.est(line.fb.axios,"positiverate")[t]
+  full.fb.CIs <- get.CI(line.fb.axios, "positiverate")
+  full.fb.CI$CI.L[t] <- full.fb.CIs$Lower[t]
+  full.fb.CI$CI.U[t] <- full.fb.CIs$Upper[t]
+  
+  
+  #axios + hp
+  full.hp.posrates[t] <- get.point.est(line.hp.axios,"positiverate")[t]
+  full.hp.CIs <- get.CI(line.hp.axios,"positiverate")
+  full.hp.CI$CI.L[t] <- full.hp.CIs$Lower[t]
+  full.hp.CI$CI.U[t] <- full.hp.CIs$Upper[t]
+  
   
   
   #get sigmasq ests
@@ -273,16 +322,20 @@ for(t in 1:fb.len){
   phi.facebook.CI$CI.U[t] <- phi.CIs$Upper[2]
   #pi ests
   
-  pi.est[t] <- get.point.est(line.full,'pi')
-  pi.CIs <- get.CI(line.full,'pi')
+  pisq.est[t] <- get.point.est(line.full,'pisq')
+  pisq.CIs <- get.CI(line.full,'pisq')
   
-  pi.CI$CI.L[t] <- pi.CIs$Lower
-  pi.CI$CI.U[t] <- pi.CIs$Upper
+  pisq.CI$CI.L[t] <- pisq.CIs$Lower
+  pisq.CI$CI.U[t] <- pisq.CIs$Upper
+  
   
 }
 
-
-
+#save results in data frame.
+results.nowcast.full <- list(posrate = list(est = full.posrates,CI.L = full.CI$CI.L,CI.U = full.CI$CI.U),
+                             sigmasq = list(est = sigmasq,CI.L = sigmasq.CI$CI.L,CI.U = sigmasq.CI$CI.U),
+                             pisq = list(est = pisq.est,CI.L = pisq.CI$CI.L,CI.U = pisq.CI$CI.U),
+                             phi = list(est.household = phi.household,est.facebook = phi.facebook, CI.household.L = phi.household.CI$CI.L, CI.household.U = phi.household.CI$CI.U, CI.facebook.L = phi.facebook.CI$CI.L, CI.facebook.U = phi.facebook.CI$CI.U))
 
 
 
@@ -340,8 +393,8 @@ phi.df <- data.frame(ymd = c(ref.dates,ref.dates), survey = c(rep("household",48
                      point.est = c(phi.household,phi.facebook),CI.L = c(phi.household.CI$CI.L,phi.facebook.CI$CI.L), CI.U = c(phi.household.CI$CI.U,phi.facebook.CI$CI.U))
 
 
-ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U)) + 
-  theme_minimal() + labs(x = "date", y = expression(sigma^2),title = "Plot of estimate of Sigma squared over time") 
+ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
+  theme_bw() + labs(x = "date", y = expression("Estimates of ",paste(sigma^2)),title = "Plot of estimate of estimate of Sigmasq over time") 
 
 
 ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_errorbar(aes(ymin = ))
@@ -352,7 +405,7 @@ mean(ax_df$vax_ub-ax_df$vax_lb)/mean(method_df$CI.U-method_df$CI.L)
 # axios CI's are 60% larger
 
 
-
+####################
 write.csv(fb_df,"Data/fb_df_new.csv",row.names = F)
 write.csv(chp_df,"Data/chp_df_new.csv",row.names = F)
 write.csv(ax_df,"Data/ax_df_new.csv",row.names = F)
@@ -362,6 +415,9 @@ write.csv(method_df,"Data/nowcast_rw.csv",row.names = F)
 
 ####
 #rerun but with 1 survey added each to compare effective sample size##
+
+##run only with fb data.
+
 
 
 
