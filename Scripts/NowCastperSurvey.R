@@ -99,7 +99,7 @@ extract.surveys <- function(datalist,row = 1){
   #function extracts given surveys from data list
   #same as extract.nona but does not shorten
 
-  K = 1
+  K <-  length(row)
   Y <- datalist$Y[row,]
   
   smalln <- datalist$smalln[row,]
@@ -203,62 +203,62 @@ for(t in 1:fb.len){
 
   ###ipsos run##
   if(t %in% c(1:ipsos.len)){
-    
+
     ipsos.t <- extract.t(ipsos.dat,t)
-    
+
     line.ipsos <- jags.parfit(cl,ipsos.t, c("positiverate"), custommodel(mod.linear.phi),
                               n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
-    
+
     ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")[t]
-    
+
     gelman.diag(line.ipsos)
-    
-    
+
+
     ipsos.CIs <- get.CI(line.ipsos,"positiverate")
     ipsos.CI$CI.U[t] <- ipsos.CIs$Upper[t]
     ipsos.CI$CI.L[t] <- ipsos.CIs$Lower[t]
-    
-    
-    
+
+
+
   }
-  
+
   if(t %in% c(1:household.len)){
     household.t <- extract.t(household.dat,t)
-    
+
     line.household <- jags.parfit(cl,household.t, c("positiverate"), custommodel(mod.linear.phi),
                                   n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
-    
+
     household.posrates[t] <- get.point.est(line.household,"positiverate")[t]
     household.CIs <- get.CI(line.household,"positiverate")
-    
-    
+
+
     household.CI$CI.U[t] <- household.CIs$Upper[t]
     household.CI$CI.L[t] <- household.CIs$Lower[t]
-    
+
   }
-  
-  
-  ###facebook and full###
-  
+
+
+###facebook and full###
+
   facebook.t <- extract.t(facebook.dat,t)
-  
+
   line.facebook <- jags.parfit(cl, facebook.t, c("positiverate"), custommodel(mod.linear.phi),
-                               n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
-  
+                             n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+
   facebook.posrates[t] <- get.point.est(line.facebook,"positiverate")[t]
-  
+
   facebook.CIs <- get.CI(line.facebook,"positiverate")
-  
-  
+
+
   facebook.CI$CI.U[t] <- facebook.CIs$Upper[t]
   facebook.CI$CI.L[t] <- facebook.CIs$Lower[t]
+
   
   
   
-  
-  
+
   line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                           n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
+                           n.chains=8,n.adapt = 350000,thin = 5, n.iter = 300000
                            ,inits = inits.chains)
   line.fb.axios <- jags.parfit(cl, data.list.fb.t, c("positiverate"), custommodel(mod.walk.phi),
                                n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
@@ -269,20 +269,20 @@ for(t in 1:fb.len){
   
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
     print("failed")
-    
+
     line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                             n.chains=8,n.adapt = 500000,thin = 5, n.iter = 500000,inits = inits.chains)
-    
+                             n.chains=8,n.adapt = 500000,thin = 5, n.iter = 600000,inits = inits.chains)
+
     print(gelman.diag(line.full))
-    
+
   }
-  
+
   full.posrates[t] <- get.point.est(line.full,"positiverate")[t]
-  
+
   full.CIs <- get.CI(line.full,"positiverate")
   full.CI$CI.U[t] <- full.CIs$Upper[t]
   full.CI$CI.L[t] <- full.CIs$Lower[t]
-  
+
   
   #for added fb, and added hp
   full.fb.posrates[t] <- get.point.est(line.fb.axios,"positiverate")[t]
@@ -299,36 +299,36 @@ for(t in 1:fb.len){
   
   
   
-  #get sigmasq ests
+ # get sigmasq ests
   sigmasq[t] <- get.point.est(line.full,'sigmasq')
   sigmasq.CIs <-  get.CI(line.full,'sigmasq')
-  
+
   sigmasq.CI$CI.L[t] <- sigmasq.CIs$Lower
   sigmasq.CI$CI.U[t] <- sigmasq.CIs$Upper
-  
+
   #phi ests
-  phi.all <- tail(exp( get.point.est(line.full,'gamma')),2) 
+  phi.all <- tail(exp( get.point.est(line.full,'gamma')),2)
   phi.household[t] <- phi.all[1]
   phi.facebook[t] <- phi.all[2]
-  
-  
-  
+
+
+
   phi.CIs <- lapply(get.CI(line.full,'gamma'),function(x){tail(exp(x),2)})
-  
-  phi.household.CI$CI.L[t] <- phi.CIs$Lower[1] 
-  phi.household.CI$CI.U[t] <- phi.CIs$Upper[1] 
-  
-  phi.facebook.CI$CI.L[t] <- phi.CIs$Lower[2] 
+
+  phi.household.CI$CI.L[t] <- phi.CIs$Lower[1]
+  phi.household.CI$CI.U[t] <- phi.CIs$Upper[1]
+
+  phi.facebook.CI$CI.L[t] <- phi.CIs$Lower[2]
   phi.facebook.CI$CI.U[t] <- phi.CIs$Upper[2]
   #pi ests
-  
+
   pisq.est[t] <- get.point.est(line.full,'pisq')
   pisq.CIs <- get.CI(line.full,'pisq')
-  
+
   pisq.CI$CI.L[t] <- pisq.CIs$Lower
   pisq.CI$CI.U[t] <- pisq.CIs$Upper
-  
-  
+
+
 }
 
 #save results in data frame.
@@ -394,15 +394,30 @@ phi.df <- data.frame(ymd = c(ref.dates,ref.dates), survey = c(rep("household",48
 
 
 ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
-  theme_bw() + labs(x = "date", y = expression("Estimates of ",paste(sigma^2)),title = "Plot of estimate of estimate of Sigmasq over time") 
+  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",sigma^2)),title = expression(paste("Estimates of ",sigma^2, "over time"))) 
 
 
-ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_errorbar(aes(ymin = ))
+ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin = 
+                                                                                                           CI.L,ymax = CI.U),alpha = 0.2)+
+  theme_bw() + ylim(0,2)
 
 #mean gain
-mean(ax_df$vax_ub-ax_df$vax_lb)/mean(method_df$CI.U-method_df$CI.L)
+mean((ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])]))
 
-# axios CI's are 60% larger
+
+mean((method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L) )
+# axios CI's are 27% larger
+
+#79.9% method CI are 79.9% the size of axios alone
+
+
+#get graph for pisq
+
+pisq.df <- data.frame(ymd = ref.dates, point.est = pisq.est, CI.L = pisq.CI$CI.L,CI.U = pisq.CI$CI.U)
+ggplot(pisq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
+  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",pi^2)),title = expression(paste("Estimates of ",pi^2, "over time"))) 
+
+
 
 
 ####################
@@ -413,11 +428,53 @@ write.csv(method_df,"Data/nowcast_rw.csv",row.names = F)
 
 
 
-####
-#rerun but with 1 survey added each to compare effective sample size##
+#how much n gain from adding FB survey?
 
-##run only with fb data.
+mean((full.fb.CI$CI.U[!is.na(data.list$Y[1,])]-full.fb.CI$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L))
+
+mean((full.hp.CI$CI.U[!is.na(data.list$Y[1,])]-full.hp.CI$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L))
+
+#about a 3.5 % gain on average
+#CI now about 0.8554 the size of axios (FB)
 
 
+#CI 0.9357 the size (hp)
+
+#phat +_ Z_0.025*sqrt((phat(1-phat))/n)
 
 
+#this means MOE is is also 96.78% the size.
+
+reduction.fb <- (full.fb.CI$CI.U[!is.na(data.list$Y[1,])]-full.fb.CI$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L)
+reduction.hp <- (full.hp.CI$CI.U[!is.na(data.list$Y[1,])]-full.hp.CI$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L)
+reduction.full <- (full.CI$CI.U[!is.na(data.list$Y[1,])]-full.CI$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L)
+
+#phat
+
+MOE.ax <- (ax_df$CI.U-ax_df$CI.L)/2
+
+phat <- ax_df$point.est
+n.old <- (1.96^2 * phat*(1-phat))/MOE.ax^2
+n.new <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.fb)^2
+
+mean(n.new-n.old) # gain of n = 609
+median(n.new-n.old) 
+
+n.new.hp <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.hp)^2
+
+mean(n.new.hp-n.old) # n = 245 gain
+median(n.new.hp-n.old)
+#combined
+
+n.new.full <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.full)^2
+
+
+mean(n.new.full-n.old) # 924 gain
+
+median(n.new.full-n.old)
+
+
+n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("All surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
+
+ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw() + 
+  labs(x ="Date",y = "Number of iid samples gained compared to Ipsos-Axios",title = "Barplot of number of iid samples gained when including the biased surveys" )
