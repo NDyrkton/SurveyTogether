@@ -29,7 +29,7 @@ fill.dates <- function(ref.date, vec.date, vec){
 
 
 source("Scripts/JagsMods.R")
-source("Scripts/helperfunctions.R")
+#source("Scripts/helperfunctions.R")
 
 
 fb_df <- read.csv("Data/fb.csv")
@@ -117,7 +117,9 @@ data.list.extended <- list(K = 3, T = 48, N = 255200373,Y = Y, times =times, sma
 saveRDS(data.list.extended,"data.list.extended.Rdata")
 
 
+#run starting here with pre-cals
 
+data.list.extended <- data.list
 
 
 #START with full data
@@ -148,7 +150,7 @@ chain4<- list(.RNG.name = "base::Super-Duper",
 
 
 line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                          n.chains=4,n.adapt = 200000,thin = 5, n.iter = 50000,inits = list(chain1,chain2,chain3,chain4))
+                          n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 #check convergence
 gelman.diag(line.ipsos)
@@ -158,7 +160,7 @@ CI.ipsos <- get.CI(line.ipsos,"positiverate")
 
 
 line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                              n.chains=4,n.adapt = 200000,thin = 5, n.iter = 50000,inits = list(chain1,chain2,chain3,chain4))
+                              n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 gelman.diag(line.household)
 
@@ -167,7 +169,7 @@ CI.household <- get.CI(line.household,"positiverate")
 
 
 line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                             n.chains=4,n.adapt = 200000,thin = 5, n.iter = 50000,inits = list(chain1,chain2,chain3,chain4))
+                             n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
 gelman.diag(line.facebook)
@@ -179,15 +181,15 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 #run actual method (linear)
 
 line.linear <- jags.parfit(cl, data.list.extended, c("positiverate","sigmasq","phi"), custommodel(mod.linear.phi),
-                         n.chains=4,n.adapt = 1000000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
+                         n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
-line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.linear.phi),
+line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.phi),
                          n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
 line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
-                         n.chains=4,n.adapt = 1000000,thin = 5, n.iter = 700000,inits = list(chain1,chain2,chain3,chain4))
+                         n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
 gelman.diag(line.linear)
@@ -225,7 +227,7 @@ compare.method <- data.frame(method = c(rep("const",48),rep("linear",48),rep("wa
                              CI.L=c(CI.const$Lower,CI.linear$Lower,CI.walk$Lower),CI.U=c(CI.const$Upper,CI.linear$Upper,CI.walk$Upper),dates = ref.dates)
 
 ggplot(data = compare.method,aes(x=dates,y = ests,color = method)) + geom_point() + 
-  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 1) + theme_minimal() + labs(x = 'Date',y = "% at least one vaccine",title = "Comparison of method by assumption on phi")
+  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 2) + theme_bw() + labs(x = 'Date',y = "% of the population with at least one vaccine",title = expression(paste("Plot of estimates of % vaccination by assumption on ",phi)))
 
 
 method_df <- data.frame(ymd = ref.dates, vax = point.walk, CI_L = CI.walk$Lower, CI_U=CI.walk$Upper)
@@ -251,6 +253,15 @@ fb_df %>% ggplot(aes(x = ymd, y = vax)) +
   labs(caption = "<br>Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.") + 
   theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.text = element_text(color = "black"), plot.caption = element_markdown(color = "grey40"))
 
+
+
+#calculate gain here:
+gain <- (CI.ipsos$Upper-CI.ipsos$Lower)/(CI.walk$Upper[!is.na(data.list$Y[1,])]-CI.walk$Lower[!is.na(data.list$Y[1,])])
+
+mean(gain)*100
+median(gain)*100
+
+ax_df$
 
 linear.phi <- get.point.est(line.linear,"phi")
 CI.linear.phi <- get.CI(line.linear,"phi")
@@ -278,21 +289,21 @@ CI.U_gamma2 <- gamma.CI$Upper[seq(1,96,by = 2)]
 CI.L_gamma3 <- gamma.CI$Lower[-seq(1,96,by = 2)]
 CI.U_gamma3 <- gamma.CI$Upper[-seq(1,96,by = 2)]
 
-phi.dat <- data.frame(survey = c(rep("household-pulse",48),rep("facebook",48),rep("household-pulse",48),rep("facebook",48),rep("household-pulse",48),rep("facebook",48)),
+phi.dat <- data.frame(survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48)),
                       method = c(rep("const",48),rep("const",48),rep("linear",48),rep("linear",48),rep("walk",48),rep("walk",48)),
                       phi = c(exp(rep(point.const[1],48)),exp(rep(point.const[2],48)),linear.phi.2,linear.phi.3,exp(point.gamma2),exp(point.gamma3)),
                       CI.L=c(exp(rep(CI.const$Lower[1],48)),exp(rep(CI.const$Lower[2],48)),CI.linear.phi.2$Lower,CI.linear.phi.3$Lower,exp(CI.L_gamma2),exp(CI.L_gamma3)),
                       CI.U =c(exp(rep(CI.const$Upper[1],48)),exp(rep(CI.const$Upper[2],48)),CI.linear.phi.2$Upper,CI.linear.phi.3$Upper,exp(CI.U_gamma2),exp(CI.U_gamma3)),
-                      t= c(1:48,1:48,1:48,1:48,1:48,1:48))
+                      t= c(ref.dates,ref.dates,ref.dates,ref.dates,ref.dates,ref.dates))
 
 ggplot(data = phi.dat,aes(x = t, y = phi, color = method, shape = survey)) + geom_point()+ 
-  geom_line() + facet_grid(survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_minimal() +labs(y = expression(phi), x = "timepoints",title = "Plot of phi by method and survey, extended data")
+  geom_line() + facet_grid(survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi[kt]), x = "Date",title = expression(paste("Plot of ",phi[kt]," by method and survey, extended data")))
 
 
 
 
 ggplot(data = phi.dat,aes(x = t, y = phi, color = method, shape = survey)) + geom_point()+ 
-  geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_minimal() +labs(y = expression(phi), x = "timepoints",title = "Plot of phi by method and survey, extended data")
+  geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi), x = "timepoints",title = "Plot of phi by method and survey, extended data")
 
 
 #try with random walk ,same jumping?

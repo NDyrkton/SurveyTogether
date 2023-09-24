@@ -12,7 +12,7 @@ library(forecast)
 
 
 source("Scripts/JagsMods.R")
-source("Scripts/helperfunctions.R")
+#source("Scripts/helperfunctions.R")
 
 #import data
 data.list <- readRDS("data_extended.Rdata")
@@ -207,7 +207,7 @@ for(t in 1:fb.len){
     ipsos.t <- extract.t(ipsos.dat,t)
 
     line.ipsos <- jags.parfit(cl,ipsos.t, c("positiverate"), custommodel(mod.linear.phi),
-                              n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+                              n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
 
     ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")[t]
 
@@ -226,7 +226,7 @@ for(t in 1:fb.len){
     household.t <- extract.t(household.dat,t)
 
     line.household <- jags.parfit(cl,household.t, c("positiverate"), custommodel(mod.linear.phi),
-                                  n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+                                  n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
 
     household.posrates[t] <- get.point.est(line.household,"positiverate")[t]
     household.CIs <- get.CI(line.household,"positiverate")
@@ -243,7 +243,7 @@ for(t in 1:fb.len){
   facebook.t <- extract.t(facebook.dat,t)
 
   line.facebook <- jags.parfit(cl, facebook.t, c("positiverate"), custommodel(mod.linear.phi),
-                             n.chains=8,n.adapt = 50000,thin = 5, n.iter = 50000,inits = inits.chains)
+                             n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
 
   facebook.posrates[t] <- get.point.est(line.facebook,"positiverate")[t]
 
