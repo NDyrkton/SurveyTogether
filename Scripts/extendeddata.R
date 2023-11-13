@@ -26,6 +26,90 @@ fill.dates <- function(ref.date, vec.date, vec){
   
 }
 
+extract.unbiased.nona <- function(datalist,col = 1){
+  K = 1
+  Y <- datalist$Y[col,]
+  
+  smalln <- datalist$smalln[col,]
+  smalln <- smalln[!is.na(Y)]
+  
+  Y <- Y[!is.na(Y)]
+  T <- length(Y)
+  times <- 1:T
+  new.list <- list(K = K, 
+                   times = matrix(times,ncol = T), N = datalist$N, T = T,
+                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+  
+  return(new.list)
+}
+
+
+
+get.point.est <- function(line,var){
+  
+  
+  point.est <- summary(line)$statistics
+  
+  #breaks if number of time points is 1, checking null fix.
+  
+  if(is.null(dim(point.est))){
+    
+    return(point.est[1])
+    
+  }else{
+    means <- summary(line)$statistics[,1]
+    
+    return(means[grep(var,names(means))])
+  }
+  
+}
+
+get.CI <- function(line,var){
+  
+  quantiles <- summary(line)$quantile
+  
+  if(is.null(dim(quantiles))){
+    
+    lower.quantile <- quantiles[1]
+    upper.quantile <- quantiles[5]
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }else{
+    
+    lower.quantile <- summary(line)$quantile[,1]
+    upper.quantile <- summary(line)$quantile[,5]
+    
+    #extract variable of interest
+    lower.quantile <- lower.quantile[grep(var,names(lower.quantile))] 
+    upper.quantile <- upper.quantile[grep(var,names(upper.quantile))] 
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }
+  
+  
+}
+
+extract.surveys <- function(datalist,row = 1){
+  #function extracts given surveys from data list
+  #same as extract.nona but does not shorten
+  
+  K <-  length(row)
+  Y <- datalist$Y[row,]
+  
+  smalln <- datalist$smalln[row,]
+  times <- datalist$times[row,]
+  T <- datalist$T
+  
+  new.list <- list(K = K, 
+                   times = matrix(times,ncol = T), N = datalist$N, T = T,
+                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+  return(new.list)
+  
+}
+
+
 
 
 source("Scripts/JagsMods.R")
@@ -114,12 +198,12 @@ times <- matrix(rep(1:length(ref.dates),3),nrow = 3,byrow = T)
 data.list.extended <- list(K = 3, T = 48, N = 255200373,Y = Y, times =times, smalln = n)
 
 
-saveRDS(data.list.extended,"data.list.extended.Rdata")
+#saveRDS(data.list.extended,"data.list.extended.Rdata")
 
 
 #run starting here with pre-cals
 
-data.list.extended <- data.list
+#data.list.extended <- data.list
 
 
 #START with full data
@@ -192,7 +276,7 @@ line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sig
                          n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
-gelman.diag(line.linear)
+#gelman.diag(line.linear)
 gelman.diag(line.walk) 
 
 #constant model seems like it is mis-specified, does not converge.
@@ -213,55 +297,59 @@ fb_df$mode <- rep("facebook",length(fb_df$ymd))
 chp_df$mode <- rep("household-pulse",length(chp_df$ymd))
 ax_df$mode <- rep("axios-ipsos",length(ax_df$ymd))
 
+
+fb_df$est <- point.facebook
 fb_df$CI_L <- CI.facebook$Lower
 fb_df$CI_U <- CI.facebook$Upper
 
+chp_df$est <- point.household
 chp_df$CI_L <- CI.household$Lower
 chp_df$CI_U <- CI.household$Upper
 
+
+ax_df$est <- point.ipsos
 ax_df$CI_L <- CI.ipsos$Lower
 ax_df$CI_U <- CI.ipsos$Upper
 
 
-compare.method <- data.frame(method = c(rep("const",48),rep("linear",48),rep("walk",48)), ests = c(point.const,point.linear,point.walk),
+compare.method <- data.frame(Method = c(rep("const",48),rep("linear",48),rep("walk",48)), ests = c(point.const,point.linear,point.walk),
                              CI.L=c(CI.const$Lower,CI.linear$Lower,CI.walk$Lower),CI.U=c(CI.const$Upper,CI.linear$Upper,CI.walk$Upper),dates = ref.dates)
 
-ggplot(data = compare.method,aes(x=dates,y = ests,color = method)) + geom_point() + 
-  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 2) + theme_bw() + labs(x = 'Date',y = "% of the population with at least one vaccine",title = expression(paste("Plot of estimates of % vaccination by assumption on ",phi)))
 
 
-method_df <- data.frame(ymd = ref.dates, vax = point.walk, CI_L = CI.walk$Lower, CI_U=CI.walk$Upper)
+ggplot(data = compare.method,aes(x=dates,y = ests,color = Method)) + geom_point() + 
+  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0) + theme_bw() + labs(x = NULL,y = "% of the population with at least one vaccine",title = expression(paste("Posterior estimates of % vaccination by model for ",phi)))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05)))
+
+method_df <- data.frame(ymd = ref.dates, est = point.walk, CI_L = CI.walk$Lower, CI_U=CI.walk$Upper)
+
+cdc_df$est <- cdc_df$vax
 
 
 
-
-
-fb_df %>% ggplot(aes(x = ymd, y = vax)) + 
+fb_df %>% ggplot(aes(x = ymd, y = est)) + 
   geom_ribbon(data = cdc_df, aes(ymin = vax_lb, ymax = vax_ub), alpha = 0.3, color = "grey50") + 
-  geom_pointline(color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df, color = "#cf7a30") + 
-  geom_errorbar(data = ax_df, aes(ymin = vax_lb, ymax = vax_ub), color = "#cf7a30", width = 0) + 
-  geom_pointline(data = chp_df, color = "#69913b")  + geom_errorbar(data = chp_df, aes(ymin = CI_L, ymax = CI_U), color = "#69913b", width = 0) +
-  geom_pointline(data = method_df,aes(x = ymd, y = vax),color = "magenta") + geom_errorbar(data = method_df,aes(ymin = CI_L,ymax = CI_U),color = 'magenta',width = 0)+
+  geom_pointline(aes(x = ymd, y = est),color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df,aes(x=ymd, y = est), color = "#cf7a30") + 
+  geom_errorbar(data = ax_df, aes(ymin = CI_L, ymax = CI_U), color = "#cf7a30", width = 0) + 
+  geom_pointline(data = chp_df,aes(x = ymd, y = est), color = "#69913b")  + geom_errorbar(data = chp_df, aes(ymin = CI_L, ymax = CI_U), color = "#69913b", width = 0) +
+  geom_pointline(data = method_df,aes(x = ymd, y = est),color = "magenta") + geom_errorbar(data = method_df,aes(ymin = CI_L,ymax = CI_U),color = 'magenta',width = 0)+
   scale_x_date(date_labels = "%b '%y", breaks = "1 month") + 
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + 
-  theme_bw() + labs(x = NULL, y = "% of US Adults with 1+ dose Vaccination") + 
+  theme_bw() + labs(x = NULL, y = "% of US Adults with 1+ dose Vaccination",title = "Synthesis method in comparison to single survey estimates") + 
   annotate("text", x = as.Date("2021-10-20"), y = 0.68, size = 3, label = "Axios-Ipsos", color = "#cf7a30") + 
   annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 3, label = "Method", color = "magenta")+
   annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
   annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
-  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0) + 
-  labs(caption = "<br>Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.") + 
-  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.text = element_text(color = "black"), plot.caption = element_markdown(color = "grey40"))
-
+  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)
 
 
 #calculate gain here:
-gain <- (CI.ipsos$Upper-CI.ipsos$Lower)/(CI.walk$Upper[!is.na(data.list$Y[1,])]-CI.walk$Lower[!is.na(data.list$Y[1,])])
+gain <- (CI.ipsos$Upper[!is.na(data.list$Y[1,])]-CI.ipsos$Lower[!is.na(data.list$Y[1,])])/(CI.walk$Upper[!is.na(data.list$Y[1,])]-CI.walk$Lower[!is.na(data.list$Y[1,])])
 
 mean(gain)*100
 median(gain)*100
 
-ax_df$
+
 
 linear.phi <- get.point.est(line.linear,"phi")
 CI.linear.phi <- get.CI(line.linear,"phi")
@@ -289,24 +377,24 @@ CI.U_gamma2 <- gamma.CI$Upper[seq(1,96,by = 2)]
 CI.L_gamma3 <- gamma.CI$Lower[-seq(1,96,by = 2)]
 CI.U_gamma3 <- gamma.CI$Upper[-seq(1,96,by = 2)]
 
-phi.dat <- data.frame(survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48)),
-                      method = c(rep("const",48),rep("const",48),rep("linear",48),rep("linear",48),rep("walk",48),rep("walk",48)),
+phi.dat <- data.frame(Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48)),
+                      Method = c(rep("const",48),rep("const",48),rep("linear",48),rep("linear",48),rep("walk",48),rep("walk",48)),
                       phi = c(exp(rep(point.const[1],48)),exp(rep(point.const[2],48)),linear.phi.2,linear.phi.3,exp(point.gamma2),exp(point.gamma3)),
                       CI.L=c(exp(rep(CI.const$Lower[1],48)),exp(rep(CI.const$Lower[2],48)),CI.linear.phi.2$Lower,CI.linear.phi.3$Lower,exp(CI.L_gamma2),exp(CI.L_gamma3)),
                       CI.U =c(exp(rep(CI.const$Upper[1],48)),exp(rep(CI.const$Upper[2],48)),CI.linear.phi.2$Upper,CI.linear.phi.3$Upper,exp(CI.U_gamma2),exp(CI.U_gamma3)),
                       t= c(ref.dates,ref.dates,ref.dates,ref.dates,ref.dates,ref.dates))
 
-ggplot(data = phi.dat,aes(x = t, y = phi, color = method, shape = survey)) + geom_point()+ 
-  geom_line() + facet_grid(survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi[kt]), x = "Date",title = expression(paste("Plot of ",phi[kt]," by method and survey, extended data")))
+ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = Survey)) + geom_point()+ 
+  geom_line() + facet_grid(Survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi[kt]), x = NULL,title = expression(paste(phi[kt]," by method and survey")))
 
 
 
 
-ggplot(data = phi.dat,aes(x = t, y = phi, color = method, shape = survey)) + geom_point()+ 
-  geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi), x = "timepoints",title = "Plot of phi by method and survey, extended data")
+ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = method, shape = survey)) + geom_point()+ 
+  geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi), x = NULL,title = "Plot of phi by method and survey, extended data")
 
 
-#try with random walk ,same jumping?
+summary(line.walk)
 
 
 
