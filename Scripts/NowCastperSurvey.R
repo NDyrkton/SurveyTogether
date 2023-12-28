@@ -379,11 +379,10 @@ fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ym
   annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 3, label = "Method", color = "magenta")+
   annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
   annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
-  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0) + 
-  labs(caption = "<br>Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.") + 
-  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.text = element_text(color = "black"), plot.caption = element_markdown(color = "grey40"))
+  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)  + 
+  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.text = element_text(color = "black"), plot.caption = element_markdown(color = "grey40"))+ ggtitle("Now-cast performance of the synthesis method")
 
-
+#Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.
 
 
 
@@ -402,11 +401,10 @@ ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_p
   theme_bw() + ylim(0,2)
 
 #mean gain
-mean((ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])]))
+gain <- (ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])
 
-
-mean((method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])/(ax_df$CI.U-ax_df$CI.L) )
-# axios CI's are 27% larger
+mean(gain)
+median(gain)
 
 #79.9% method CI are 79.9% the size of axios alone
 
@@ -474,7 +472,7 @@ mean(n.new.full-n.old) # 924 gain
 median(n.new.full-n.old)
 
 
-n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("All surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
+n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("Both Surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
 
 ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw() + 
-  labs(x ="Date",y = "Number of iid samples gained compared to Ipsos-Axios",title = "Barplot of number of iid samples gained when including the biased surveys" )
+  labs(x ="Date",y = "Number of iid samples gained compared to Ipsos-Axios",title = "Barplot of number of iid samples gained when including the biased surveys",fill = "Survey")

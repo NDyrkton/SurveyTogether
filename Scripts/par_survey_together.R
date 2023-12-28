@@ -19,10 +19,21 @@ logit <- function(x){
   log(x/(1-x))
 }
 
-#now fixed to be consistent with notation in paper.
-generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
+
+#How fixed to be consistent with notation in paper.
+generate.dataset <- function(N= 10000, K =3, t = c(1:5), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
-  smalln <- t(matrix(rep(ns,K),ncol = K))
+  smalln <- matrix(0,ncol = length(t),nrow = K)
+  #get default smalln
+  
+  for(k in 1:K){
+    smalln[k,] <- rep(100,length(t))
+    
+    if(k>1){
+      smalln[k,] <- rep(1000,length(t))
+    }
+  }
+  
   posrate_t <- numeric(length(t))
   theta_t <- numeric(length(t))
   times <- t(matrix(rep(t,K),ncol = K))
@@ -320,16 +331,16 @@ dcoptions("verbose"=F)#mute the output of dlclone
 
 
 
-generate.data.replicates <- function(phi = "constant",t = 1:5,NN){
+generate.data.replicates <- function(phi = "constant",t = 1:5,NN,K = 3){
   
   #function creates all data for simulation
   list.return <- list()
   for(i in 1:NN){
     gen.data <- generate.dataset(phi = phi,t = t)
     
-    if(sum(gen.data$Y==100| gen.data$Y==0)>=3){
+    if(sum(gen.data$Y[2:K,]==1000| gen.data$Y[2:K,]==0)>=1){
       print(paste("bad data on i =", i))
-      gen.data <- generate.dataset(phi = phi,t = t)
+      gen.data <- generate.dataset(phi = phi,t = t,K = K)
     }
   
     list.return[[i]] <- gen.data
@@ -338,14 +349,14 @@ generate.data.replicates <- function(phi = "constant",t = 1:5,NN){
   return(list.return)
 }
 
-check.bad.data <- function(data.list,t = 1:5,tol = 3,phi = 'constant'){
+check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
   
   for(i in 1:length(data.list)){
     
-    if(sum(data.list[[i]]$Y==100 | data.list[[i]]$Y==0)>=tol){
+    if(sum(data.list[[i]]$Y[2:K,]==1000 | data.list[[i]]$Y[2:K,]==0)>=1){
       print(paste("bad data on i =", i))
       
-      data.list[[i]] <- generate.dataset(phi = phi,t = t)
+      data.list[[i]] <- generate.dataset(phi = phi,t = t,K = K)
       
     }
   }
@@ -375,7 +386,7 @@ data.walk <- check.bad.data(data.walk,phi = 'walk')
 
 
 #start parallel
-cl <- makePSOCKcluster(4)
+cl <- makePSOCKcluster(10)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -407,8 +418,21 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
                   .RNG.seed = c(j+2))
     chain4<- list(.RNG.name = "base::Super-Duper", 
                   .RNG.seed = c(j+4))
+    chain5<- list(.RNG.name = "base::Wichmann-Hill", 
+                  .RNG.seed = c(j+5))
+    chain6<- list(.RNG.name = "base::Super-Duper", 
+                  .RNG.seed = c(j+6))
+    chain7<- list(.RNG.name = "base::Wichmann-Hill", 
+                  .RNG.seed = c(j+7))
+    chain8<- list(.RNG.name = "base::Super-Duper", 
+                  .RNG.seed = c(j+8))
+    chain9<- list(.RNG.name = "base::Wichmann-Hill", 
+                  .RNG.seed = c(j+9))
+    chain10<- list(.RNG.name = "base::Super-Duper", 
+                   .RNG.seed = c(j+10))
     
-    chains.init <- list(chain1,chain2,chain3,chain4)
+    chains.init <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8,chain9,chain10)
+    
     
     
     data.const.phi <- data.const[[j]]
