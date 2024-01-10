@@ -19,6 +19,15 @@ logit <- function(x){
 }
 
 
+#
+sigmasq <-  rtruncnorm(500000,mean = 0, sd = sqrt(0.1),a = 0, b= Inf)
+
+
+jump.method <- inv.logit(rnorm(500000,0,sd = sqrt(sigmasq)))
+
+quantile(jump.method-0.5,seq(0,1,0.05))
+####
+
 
 #prior on sigmasq
 ##for first prior mentioned (sd = sqrt(5))
@@ -37,8 +46,20 @@ theta0 <- rnorm(100000,mean = 0,sd = sqrt(5))
 quantile(inv.logit(theta0),seq(0,1,0.05))
 
 
+#test
+theta0 <- rnorm(100000,mean = 0,sd = sqrt(1))
+
+quantile(inv.logit(theta0),seq(0,1,0.05))
 
 
+#test for linear model;
+gamma0 <- rnorm(100000)
+gamma1 <- rnorm(100000,mean = 0, sd = sqrt(0.01))
+
+phi0 <- exp(gamma0)
+phi1 <- exp(gamma0+gamma1)
+
+quantile(phi1-phi0,seq(0,1,0.05))*1
 
 
 sigmasq <-  rtruncnorm(10000,mean = 0, sd = sqrt(5),a = 0, b= Inf)

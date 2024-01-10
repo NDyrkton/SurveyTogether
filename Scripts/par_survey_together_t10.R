@@ -25,7 +25,7 @@ logit <- function(x){
 
 
 #How fixed to be consistent with notation in paper.
-generate.dataset <- function(N= 10000, K =3, t = c(1:5), phi = "constant"){
+generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
   smalln <- matrix(0,ncol = length(t),nrow = K)
   #get default smalln
@@ -44,7 +44,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), phi = "constant"){
   
   #priors on general parameters
   sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
-  theta0 <- rnorm(1,mean =0, sd = sqrt(0.5))
+  theta0 <- rnorm(1,mean =0, sd = sqrt(1))
   
   if(phi == "constant"){
     #generate param based on prior
@@ -84,7 +84,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), phi = "constant"){
     phi_kt <- matrix(NA,nrow =K,ncol = length(t))
     #priors
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(0.1,K-1)))
+    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.01),K-1)))
     
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
@@ -193,19 +193,16 @@ for(t in 2:T){
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
 
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 	}
 }
 
 #priors
-theta0 ~ dnorm(0, 1/0.5);
+theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
 for (k in 1:K){
@@ -234,19 +231,16 @@ for(t in 2:T){
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
 
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 	}
 }
 
 #priors
-theta0 ~ dnorm(0, 1/0.5);
+theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
 for (k in 1:K){
@@ -284,19 +278,16 @@ for(t in 2:T){
 	positiverate[t]	<- ilogit(logitpositiverate[t])
 }
 
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
 
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 	}
 }
 
 #priors
-theta0 ~ dnorm(0, 1/0.5);
+theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 pisq ~ dnorm(0, 1/0.01)T(0,);
 
@@ -339,9 +330,9 @@ generate.data.replicates <- function(phi = "constant",t = 1:5,NN,K = 3){
   for(i in 1:NN){
     gen.data <- generate.dataset(phi = phi,t = t)
     
-    if(sum(gen.data$Y[2:K,]==1000| gen.data$Y[2:K,]==0)>=1){
+    if(sum(gen.data$Y[2:K,]==1000 | gen.data$Y[2:K,]==0)>=1){
       print(paste("bad data on i =", i))
-      gen.data <- generate.dataset(phi = phi,t = t,K = K)
+      
     }
     
     list.return[[i]] <- gen.data
@@ -368,27 +359,12 @@ check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
 
 
 
-#narrow priors slightly
-
 
 set.seed(1292374)
-data.const <- generate.data.replicates(phi = "constant", NN = 500,t = 1:10)
-data.linear  <- generate.data.replicates(phi = "linear", NN = 500,t = 1:10)
-data.walk  <- generate.data.replicates(phi = "walk", NN = 500,t = 1:10)
+data.const <- generate.data.replicates(phi = "constant", NN = 1000,t = 1:10)
+data.linear  <- generate.data.replicates(phi = "linear", NN = 1000,t = 1:10)
+data.walk  <- generate.data.replicates(phi = "walk", NN = 1000,t = 1:10)
 
-
-#check if bad data exists and replace.
-data.const <- check.bad.data(data.const,phi = "constant",t = 1:10)
-data.linear <- check.bad.data(data.linear,phi = 'linear',t = 1:10)
-data.walk <- check.bad.data(data.walk,phi = 'walk',t = 1:10)
-
-
-#third
-data.const <- check.bad.data(data.const,phi = "constant",t = 1:10)
-data.linear <- check.bad.data(data.linear,phi = 'linear',t = 1:10)
-data.walk <- check.bad.data(data.walk,phi = 'walk',t = 1:10)
-
-#all checks pass
 
 cl <- makePSOCKcluster(10)
 
@@ -531,8 +507,8 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
 
 #run the simulation
 
-results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = 500,ti = 10)
-NN <- 1
+results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = 1000,ti = 10)
+NN <- 1000
 
 ggplot(data = results.plot.final, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
   labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 10 timepoints")) +
@@ -544,6 +520,6 @@ ggplot(data = results.plot.final, aes(x = data, y = RMSE,group = model,colour = 
 stopCluster(cl)
 
 
-write.csv(results.plot.final,"RMSE_plot_t10_500.csv",row.names = F)
+write.csv(results.plot.final,"RMSE_t10_1000_large_N.csv",row.names = F)
 
 

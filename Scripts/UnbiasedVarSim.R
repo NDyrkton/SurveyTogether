@@ -202,10 +202,10 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 1);
+theta0 ~ dnorm(0, 1)
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 }
 }')
@@ -318,6 +318,37 @@ get.mean <- function(mcmc.obj,timepoint){
   return(summary(mcmc.obj)$statistics[,1][timepoint])
 }
 
+get.var <- function(mcmc.obj,timepoint){
+  return(summary(mcmc.obj)$statistics[,2][timepoint])
+}
+
+get.CI <- function(line,var){
+  
+  quantiles <- summary(line)$quantile
+  
+  if(is.null(dim(quantiles))){
+    
+    lower.quantile <- quantiles[1]
+    upper.quantile <- quantiles[5]
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }else{
+    
+    lower.quantile <- summary(line)$quantile[,1]
+    upper.quantile <- summary(line)$quantile[,5]
+    
+    #extract variable of interest
+    lower.quantile <- lower.quantile[grep(var,names(lower.quantile))] 
+    upper.quantile <- upper.quantile[grep(var,names(upper.quantile))] 
+    
+    return(c(lower.quantile,upper.quantile))
+    
+  }
+  
+  
+}
+
 dcoptions("verbose"=F)#mute the output of dclone
 
 
@@ -357,13 +388,13 @@ check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
   
 }
 
-#narrow priors slightly
 
+NN <- 10
 
-set.seed(1292374)
-data.const <- generate.data.replicates(phi = "constant", NN = 1000,t = 1:15)
-data.linear  <- generate.data.replicates(phi = "linear", NN = 1000,t = 1:15)
-data.walk  <- generate.data.replicates(phi = "walk", NN = 1000,t = 1:15)
+set.seed(1234)
+data.const <- generate.data.replicates(phi = "constant", NN = NN,t = 1:10)
+data.linear  <- generate.data.replicates(phi = "linear", NN = NN,t = 1:10)
+data.walk  <- generate.data.replicates(phi = "walk", NN = NN,t = 1:10)
 
 
 cl <- makePSOCKcluster(10)
@@ -372,25 +403,22 @@ clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
-NN <- 1000
+print("T = 10 Simulations")
 
-
-
-print("T = 15 simulations")
-
-run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti = 5){
+run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti = 5){
   
   error <- matrix(NA,nrow = NN, ncol = 9)
-  colnames(error) <- c("const x const","const x linear", "const x walk",
-                       "linear x const", "linear x linear","linear x walk",
-                       "walk x const", "walk x linear", "walk x walk")
-  only.unbiased <-  matrix(NA, nrow = NN, ncol = 3)
-  colnames(only.unbiased) <- c("const","linear", "walk")
-  
+  colnames(error) <- c("const var","const bias","const 95 contain",
+                       "linear var","linear bias", "linear 95 contain", 
+                       "walk var","walk bias", "walk 95 contain")
+  only.unbiased <-  matrix(NA, nrow = NN, ncol = 9)
+  colnames(only.unbiased) <- c("const var","const bias","const 95 contain",
+                               "linear var","linear bias", "linear 95 contain", 
+                       "walk var","walk bias", "walk 95 contain")
   
   
   for(j in 1:NN){
-
+    
     
     chain1<- list(.RNG.name = "base::Wichmann-Hill", 
                   .RNG.seed = c(j))
@@ -411,19 +439,21 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti 
     chain9<- list(.RNG.name = "base::Wichmann-Hill", 
                   .RNG.seed = c(j+9))
     chain10<- list(.RNG.name = "base::Super-Duper", 
-                  .RNG.seed = c(j+10))
+                   .RNG.seed = c(j+10))
     
     chains.init <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8,chain9,chain10)
+    
     
     
     data.const.phi <- data.const[[j]]
     data.linear.phi <- data.linear[[j]]
     data.walk.phi <- data.walk[[j]]
     
-    #center linear phi
+    #center linear function
     data.const.phi$times_centered <- data.const.phi$times- median(data.const.phi$times)
     data.linear.phi$times_centered <- data.linear.phi$times - median(data.linear.phi$times)
     data.walk.phi$times_centered <- data.walk.phi$times- median(data.walk.phi$times)
+    
     
     pos.rate.const <- data.const.phi$params[grep(paste0("posrate",ti),names(data.const.phi$params))]
     pos.rate.linear <- data.linear.phi$params[grep(paste0("posrate",ti),names(data.linear.phi$params))]
@@ -439,88 +469,92 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti 
     
     const.const <- jags.parfit(cl, data.const.phi, "positiverate", mod.const.phi,
                                n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j,"const x const"] <- pos.rate.const - get.mean(const.const,ti)
     
-    const.linear <- jags.parfit(cl, data.const.phi, "positiverate", mod.linear.phi,
-                                n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "const x linear"] <- pos.rate.const - get.mean(const.linear,ti)
+    const.summary <- summary(const.const)
+    const.lower <- round(const.summary$quantiles[,1][ti],3)
+    const.upper <- round(const.summary$quantiles[,5][ti],3)
     
-    const.walk <- jags.parfit(cl, data.const.phi, "positiverate", mod.walk.phi,
-                              n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "const x walk"] <- pos.rate.const - get.mean(const.walk,ti)
+    error[j,"const var"] <- (const.summary$statistics[,2][ti])^2
+    error[j,"const bias"] <- pos.rate.const - const.summary$statistics[,1][ti]
+    error[j,"const 95 contain"] <- ifelse(pos.rate.const <= const.upper & pos.rate.const >= const.lower,TRUE,FALSE)
     
-    linear.const <- jags.parfit(cl, data.linear.phi, "positiverate", mod.const.phi,
-                                n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "linear x const"] <- pos.rate.linear - get.mean(linear.const,ti)
     
     linear.linear <- jags.parfit(cl, data.linear.phi, "positiverate", mod.linear.phi,
                                  n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "linear x linear"] <- pos.rate.linear - get.mean(linear.linear,ti)
+    linear.summary <- summary(linear.linear)
+    linear.lower <- round(linear.summary$quantiles[,1][ti],3)
+    linear.upper <- round(linear.summary$quantiles[,5][ti],3)
     
-    linear.walk <- jags.parfit(cl, data.linear.phi, "positiverate", mod.walk.phi,
-                               n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "linear x walk"] <- pos.rate.linear - get.mean(linear.walk,ti)
-    
-    walk.const <- jags.parfit(cl, data.walk.phi, "positiverate", mod.const.phi,
-                              n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "walk x const"] <- pos.rate.walk - get.mean(walk.const,ti)
-    
-    walk.linear <- jags.parfit(cl, data.walk.phi, "positiverate", mod.linear.phi,
-                               n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "walk x linear"] <- pos.rate.walk - get.mean(walk.linear,ti)
+    error[j,"linear var"] <- (linear.summary$statistics[,2][ti])^2
+    error[j,"linear bias"] <- pos.rate.linear - linear.summary$statistics[,1][ti]
+    error[j,"linear 95 contain"] <- ifelse(pos.rate.linear<= linear.upper & pos.rate.linear>= linear.lower,TRUE,FALSE)
+   
     
     walk.walk <- jags.parfit(cl, data.walk.phi, "positiverate", mod.walk.phi,
                              n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "walk x walk"] <- pos.rate.walk - get.mean(walk.walk,ti)
+    walk.summary <- summary(walk.walk)
+    walk.lower <- round(walk.summary$quantiles[,1][ti],3)
+    walk.upper <- round(walk.summary$quantiles[,5][ti],3)
     
-    #one unbiased survey only.
-    #data x model
+    error[j,"walk var"] <- (walk.summary$statistics[,2][ti])^2
+    error[j,"walk bias"] <- pos.rate.walk - walk.summary$statistics[,1][ti]
+    error[j,"walk 95 contain"] <- ifelse(pos.rate.walk <= walk.upper & pos.rate.walk >= walk.lower,TRUE,FALSE)
     
     
     unb.const<- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
                             n.chains = 10,n.adapt =20000,thin = 5, n.iter = 50000,inits = chains.init)
-    only.unbiased[j, "const"] <- pos.rate.const - get.mean(unb.const,ti)
+    
+    unb.const.summary <- summary(unb.const)
+    unb.const.lower <- unb.const.summary$quantiles[,1][ti]
+    unb.const.upper <- unb.const.summary$quantiles[,5][ti]
+    
+    only.unbiased[j,"const var"] <- (unb.const.summary$statistics[,2][ti])^2
+    only.unbiased[j,"const bias"] <- pos.rate.const - unb.const.summary$statistics[,1][ti]
+    only.unbiased[j,"const 95 contain"] <- ifelse(pos.rate.const <= unb.const.upper & pos.rate.const >= unb.const.lower,TRUE,FALSE)
+    
     
     unb.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
                               n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
-    only.unbiased[j, "linear"] <- pos.rate.linear - get.mean(unb.linear,ti)
+    unb.linear.summary <- summary(unb.linear)
+    unb.linear.lower <- unb.linear.summary$quantiles[,1][ti]
+    unb.linear.upper <- unb.linear.summary$quantiles[,5][ti]
+    
+    only.unbiased[j,"linear var"] <- (unb.linear.summary$statistics[,2][ti])^2
+    only.unbiased[j,"linear bias"] <- pos.rate.linear - unb.linear.summary$statistics[,1][ti]
+    only.unbiased[j,"linear 95 contain"] <- ifelse(pos.rate.linear <= unb.linear.upper & pos.rate.linear  >= unb.linear.lower,TRUE,FALSE)
+    
     
     unb.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
                             n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
-    only.unbiased[j, "walk"] <- pos.rate.walk - get.mean(unb.walk,ti)
+    
+    unb.walk.summary <- summary(unb.walk)
+    unb.walk.lower <- unb.walk.summary$quantiles[,1][ti]
+    unb.walk.upper <- unb.walk.summary$quantiles[,5][ti]
+    
+    only.unbiased[j,"walk var"] <- (unb.walk.summary$statistics[,2][ti])^2
+    only.unbiased[j,"walk bias"] <- pos.rate.walk - unb.walk.summary$statistics[,1][ti]
+    only.unbiased[j,"walk 95 contain"] <- ifelse(pos.rate.walk <= unb.walk.upper & pos.rate.walk  >= unb.walk.lower,TRUE,FALSE)
+    
     
   }
   
-  
-  result.RMSE <- apply(error,2,function(x){sqrt(mean((100*x)^2))})
-  result.RMSE.unb <- apply(only.unbiased,2,function(x){sqrt(mean((100*x)^2))})
-  
-  
-  
-  results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3),c()), model = rep(c("const","linear","walk"),3),RMSE = result.RMSE)
-  results.plot.unb <- data.frame(data = c("const","linear","walk"), model = rep("unbiased",3),RMSE = result.RMSE.unb)
-  
-  results.plot.final <- rbind(results.plot,results.plot.unb)
-  
-  return(results.plot.final)
+  result.final <- rbind(error,only.unbiased)
+
+  return(result.final)
   
   
 }
 
 #run the simulation
-
-results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = 1000,ti = 15)
-
-ggplot(data = results.plot.final, aes(x = data, y = RMSE,group = model,colour = model)) + geom_point() + geom_line() + theme_minimal() + 
-  labs(x = "Data generation", y = "Root Mean Squared Error", title = paste("RMSE of NN = ",NN,"in 3x3 design, 15 timepoints")) +
-  scale_color_manual(values = c("const"="red","linear" = "green",walk="blue",unbiased = "black"))
-
-
+results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = NN,ti = 10)
 
 #end parallel
 stopCluster(cl)
 
+write.csv(results.plot.final,"CheckCIT10N1000.csv",row.names = F)
 
-write.csv(results.plot.final,"RMSE_t15_1000_large_N.csv",row.names = F)
-
+models <- results.plot.final[1:200,]
+unbiased <- results.plot.final[201:400,]
+apply(models*100,2,mean)
+apply(unbiased*100,2,mean)
 

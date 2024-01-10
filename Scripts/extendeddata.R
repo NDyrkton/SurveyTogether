@@ -198,6 +198,7 @@ times <- matrix(rep(1:length(ref.dates),3),nrow = 3,byrow = T)
 data.list.extended <- list(K = 3, T = 48, N = 255200373,Y = Y, times =times, smalln = n)
 
 
+
 #saveRDS(data.list.extended,"data.list.extended.Rdata")
 
 
@@ -319,7 +320,7 @@ compare.method <- data.frame(Method = c(rep("const",48),rep("linear",48),rep("wa
 
 ggplot(data = compare.method,aes(x=dates,y = ests,color = Method)) + geom_point() + 
   geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0) + theme_bw() + labs(x = NULL,y = "% of the population with at least one vaccine",title = expression(paste("Posterior estimates of % vaccination by model for ",phi)))+
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05)))
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 method_df <- data.frame(ymd = ref.dates, est = point.walk, CI_L = CI.walk$Lower, CI_U=CI.walk$Upper)
 
