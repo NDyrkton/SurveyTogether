@@ -243,7 +243,7 @@ for (k in 1:K){
 theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 	gamma1[k] ~ dnorm(0, 1/0.01);
 }
@@ -291,7 +291,7 @@ theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 pisq ~ dnorm(0, 1/0.01)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 
 }
@@ -389,9 +389,9 @@ check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
 }
 
 
-NN <- 10
+NN <- 150
 
-set.seed(1234)
+set.seed(12345)
 data.const <- generate.data.replicates(phi = "constant", NN = NN,t = 1:10)
 data.linear  <- generate.data.replicates(phi = "linear", NN = NN,t = 1:10)
 data.walk  <- generate.data.replicates(phi = "walk", NN = NN,t = 1:10)
@@ -476,7 +476,7 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     
     error[j,"const var"] <- (const.summary$statistics[,2][ti])^2
     error[j,"const bias"] <- pos.rate.const - const.summary$statistics[,1][ti]
-    error[j,"const 95 contain"] <- ifelse(pos.rate.const <= const.upper & pos.rate.const >= const.lower,TRUE,FALSE)
+    error[j,"const 95 contain"] <- ifelse(round(pos.rate.const,3) <= const.upper & round(pos.rate.const,3) >= const.lower,TRUE,FALSE)
     
     
     linear.linear <- jags.parfit(cl, data.linear.phi, "positiverate", mod.linear.phi,
@@ -551,10 +551,10 @@ results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = N
 #end parallel
 stopCluster(cl)
 
-write.csv(results.plot.final,"CheckCIT10N1000.csv",row.names = F)
+#write.csv(results.plot.final,"CheckCIT10N1000.csv",row.names = F)
 
-models <- results.plot.final[1:200,]
-unbiased <- results.plot.final[201:400,]
+models <- results.plot.final[1:150,]
+unbiased <- results.plot.final[151:300,]
 apply(models*100,2,mean)
 apply(unbiased*100,2,mean)
 
