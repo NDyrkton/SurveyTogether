@@ -31,13 +31,16 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
   #get default smalln
   
   for(k in 1:K){
+    #k = 1 is n = 100
     smalln[k,] <- rep(100,length(t))
     
     if(k>1){
+      #all other k is k = 1000
       smalln[k,] <- rep(1000,length(t))
     }
   }
   
+  #initialize positive rate
   posrate_t <- numeric(length(t))
   theta_t <- numeric(length(t))
   times <- t(matrix(rep(t,K),ncol = K))
@@ -52,21 +55,27 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
     #constant phi values
     phi <- exp(gamma0)
     
-    
+
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
     
+    #random walk for positive rate
     for(i in 2:length(t)){
       
       theta_t[i] <- rnorm(1,mean = theta_t[i-1],sd = sqrt(sigmasq))
       posrate_t[i] <- inv.logit(theta_t[i])
       
     }
+    
+    #generate positive in population
     P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
     
     for(k in 1:K){
       
       for(i in 1:length(t)){
+        
+        #generate survey sample
+        
         Y_kt <- rnoncenhypergeom(n = 1, n1 = P_t[i],n2 = N-P_t[i], m1 = smalln[k,i], psi = phi[k])
         Y[k,i] <- Y_kt
         
@@ -302,8 +311,7 @@ for (k in 2:K){
 #source("Scripts/helperfunctions.R")
 
 
-
-
+#this function extracts the first survey only as "unbiased survey"
 extract.unbiased <- function(datalist){
   K = 1
   T <- datalist$T
@@ -314,14 +322,17 @@ extract.unbiased <- function(datalist){
   return(new.list)
 }
 
+#calculates the posterior mean at given timepoint (not used)
 get.mean <- function(mcmc.obj,timepoint){
   return(summary(mcmc.obj)$statistics[,1][timepoint])
 }
 
+#calculates the posterior variance at given timepoint (not used)
 get.var <- function(mcmc.obj,timepoint){
   return(summary(mcmc.obj)$statistics[,2][timepoint])
 }
 
+#gets 95% credible interval (not used)
 get.CI <- function(line,var){
   
   quantiles <- summary(line)$quantile
@@ -353,7 +364,7 @@ dcoptions("verbose"=F)#mute the output of dclone
 
 
 
-
+#generate all datasets in advance
 generate.data.replicates <- function(phi = "constant",t = 1:5,NN,K = 3){
   
   #function creates all data for simulation
@@ -362,6 +373,7 @@ generate.data.replicates <- function(phi = "constant",t = 1:5,NN,K = 3){
     gen.data <- generate.dataset(phi = phi,t = t)
     
     if(sum(gen.data$Y[2:K,]==1000 | gen.data$Y[2:K,]==0)>=1){
+      #print if phi is unidentifiable
       print(paste("bad data on i =", i))
       
     }
@@ -372,6 +384,7 @@ generate.data.replicates <- function(phi = "constant",t = 1:5,NN,K = 3){
   return(list.return)
 }
 
+#check how many unidentifiable phi (not used)
 check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
   
   for(i in 1:length(data.list)){
@@ -388,15 +401,17 @@ check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
   
 }
 
-
-NN <- 150
+#how many replications
+NN <- 100
 
 set.seed(12345)
+#generate the NN datasets
 data.const <- generate.data.replicates(phi = "constant", NN = NN,t = 1:10)
 data.linear  <- generate.data.replicates(phi = "linear", NN = NN,t = 1:10)
 data.walk  <- generate.data.replicates(phi = "walk", NN = NN,t = 1:10)
 
 
+#parallel 10 cores
 cl <- makePSOCKcluster(10)
 
 clusterEvalQ(cl, library(dclone))
@@ -405,8 +420,11 @@ parLoadModule(cl,"lecuyer")
 
 print("T = 10 Simulations")
 
+#function to run all simulations
 run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti = 5){
   
+  
+  #Initialize all datasets
   error <- matrix(NA,nrow = NN, ncol = 9)
   colnames(error) <- c("const var","const bias","const 95 contain",
                        "linear var","linear bias", "linear 95 contain", 
@@ -417,6 +435,8 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
                        "walk var","walk bias", "walk 95 contain")
   
   
+  
+  #for loop for replications
   for(j in 1:NN){
     
     
@@ -444,21 +464,23 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     chains.init <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8,chain9,chain10)
     
     
-    
+    #the given dataset to be run at loop j
     data.const.phi <- data.const[[j]]
     data.linear.phi <- data.linear[[j]]
     data.walk.phi <- data.walk[[j]]
     
-    #center linear function
+    #center data incase of linear funciton
     data.const.phi$times_centered <- data.const.phi$times- median(data.const.phi$times)
     data.linear.phi$times_centered <- data.linear.phi$times - median(data.linear.phi$times)
     data.walk.phi$times_centered <- data.walk.phi$times- median(data.walk.phi$times)
     
     
+    #get the true positive rate (now casted, last timepooint)
     pos.rate.const <- data.const.phi$params[grep(paste0("posrate",ti),names(data.const.phi$params))]
     pos.rate.linear <- data.linear.phi$params[grep(paste0("posrate",ti),names(data.linear.phi$params))]
     pos.rate.walk <- data.walk.phi$params[grep(paste0("posrate",ti),names(data.walk.phi$params))]
     
+    #Get only the K = 1 survey (unbiased survey)
     unbiased.const.phi <- extract.unbiased(data.const.phi)
     unbiased.linear.phi <- extract.unbiased(data.linear.phi)
     unbiased.walk.phi <- extract.unbiased(data.walk.phi)
@@ -470,15 +492,18 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     const.const <- jags.parfit(cl, data.const.phi, "positiverate", mod.const.phi,
                                n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
     
+    #get summary for mean, variance, and 95% CI
     const.summary <- summary(const.const)
     const.lower <- round(const.summary$quantiles[,1][ti],3)
     const.upper <- round(const.summary$quantiles[,5][ti],3)
     
+    
+    #store values
     error[j,"const var"] <- (const.summary$statistics[,2][ti])^2
     error[j,"const bias"] <- pos.rate.const - const.summary$statistics[,1][ti]
     error[j,"const 95 contain"] <- ifelse(round(pos.rate.const,3) <= const.upper & round(pos.rate.const,3) >= const.lower,TRUE,FALSE)
     
-    
+    #linear model
     linear.linear <- jags.parfit(cl, data.linear.phi, "positiverate", mod.linear.phi,
                                  n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
     linear.summary <- summary(linear.linear)
@@ -489,7 +514,7 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     error[j,"linear bias"] <- pos.rate.linear - linear.summary$statistics[,1][ti]
     error[j,"linear 95 contain"] <- ifelse(pos.rate.linear<= linear.upper & pos.rate.linear>= linear.lower,TRUE,FALSE)
    
-    
+    #walk model
     walk.walk <- jags.parfit(cl, data.walk.phi, "positiverate", mod.walk.phi,
                              n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
     walk.summary <- summary(walk.walk)
@@ -500,6 +525,7 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     error[j,"walk bias"] <- pos.rate.walk - walk.summary$statistics[,1][ti]
     error[j,"walk 95 contain"] <- ifelse(pos.rate.walk <= walk.upper & pos.rate.walk >= walk.lower,TRUE,FALSE)
     
+    #only using unbiased survey (K = 1)
     
     unb.const<- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
                             n.chains = 10,n.adapt =20000,thin = 5, n.iter = 50000,inits = chains.init)
@@ -512,7 +538,7 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     only.unbiased[j,"const bias"] <- pos.rate.const - unb.const.summary$statistics[,1][ti]
     only.unbiased[j,"const 95 contain"] <- ifelse(pos.rate.const <= unb.const.upper & pos.rate.const >= unb.const.lower,TRUE,FALSE)
     
-    
+    #unbiased linear 
     unb.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
                               n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
     unb.linear.summary <- summary(unb.linear)
@@ -523,7 +549,7 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     only.unbiased[j,"linear bias"] <- pos.rate.linear - unb.linear.summary$statistics[,1][ti]
     only.unbiased[j,"linear 95 contain"] <- ifelse(pos.rate.linear <= unb.linear.upper & pos.rate.linear  >= unb.linear.lower,TRUE,FALSE)
     
-    
+    #unbiased walk
     unb.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
                             n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
     
@@ -538,6 +564,7 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
     
   }
   
+  #first NN observations are model, second NN observations are unbiased survey inference only
   result.final <- rbind(error,only.unbiased)
 
   return(result.final)
@@ -553,8 +580,11 @@ stopCluster(cl)
 
 #write.csv(results.plot.final,"CheckCIT10N1000.csv",row.names = F)
 
-models <- results.plot.final[1:150,]
-unbiased <- results.plot.final[151:300,]
+#extract the model & unbiased only
+models <- results.plot.final[1:100,]
+unbiased <- results.plot.final[101:200,]
+
+#check unbiasedness, CI etc 
 apply(models*100,2,mean)
 apply(unbiased*100,2,mean)
 
