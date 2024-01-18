@@ -364,7 +364,7 @@ CI.full <- get.CI(line.full, 'positiverate')
 
 
 
-frame <- data.frame(Survey = c(rep("(K=1)",10),rep("(K=2)",10),rep("(K=3)",10),rep("Method",10)),time = c(1:10,1:10,1:10,1:10), 
+frame <- data.frame(Survey = c(rep("(k=1)",10),rep("(k=2)",10),rep("(k=3)",10),rep("Method",10)),time = c(1:10,1:10,1:10,1:10), 
                                estimate = c(posrate.1,posrate.2,posrate.3,posrate.full),CI.L = c(CI.1$Lower,CI.2$Lower,CI.3$Lower,CI.full$Lower),
                                CI.U = c(CI.1$Upper,CI.2$Upper,CI.3$Upper,CI.full$Upper))
                     
@@ -373,7 +373,7 @@ frame.posrate <-  data.frame(time = c(1:10),posrate = data$params[grep("posrate"
 library(RColorBrewer)
 ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line() + 
   geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw() + 
-  labs(x = "Time", y = "Positive rate",title = "Example of the method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
+  labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
   geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linetype = "dashed") + scale_colour_brewer(palette = "Dark2")
   
 

@@ -396,8 +396,7 @@ ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + g
   theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",sigma^2)),title = expression(paste("Estimates of ",sigma^2, "over time"))) 
 
 
-ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin = 
-                                                                                                           CI.L,ymax = CI.U),alpha = 0.2)+
+ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
   theme_bw() + ylim(0,2)
 
 #mean gain
@@ -475,4 +474,5 @@ median(n.new.full-n.old)
 n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("Both Surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
 
 ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw() + 
-  labs(x ="Date",y = "Number of iid samples gained compared to Ipsos-Axios",title = "Barplot of number of iid samples gained when including the biased surveys",fill = "Survey")
+  labs(x ="Date",y = "Number of iid samples gained compared to Ipsos-Axios",title = "Barplot of number of iid samples gained when including the biased surveys",fill = "Survey")+scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
+

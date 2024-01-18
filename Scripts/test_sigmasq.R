@@ -20,25 +20,14 @@ logit <- function(x){
 
 
 #
-sigmasq <-  rtruncnorm(500000,mean = 0, sd = sqrt(0.1),a = 0, b= Inf)
+sigmasq <-  rtruncnorm(500000,mean = 0, sd = sqrt(1),a = 0, b= Inf)
 
 
 jump.method <- inv.logit(rnorm(500000,0,sd = sqrt(sigmasq)))
 
 quantile(jump.method-0.5,seq(0,1,0.05))
 ####
-
-
-#prior on sigmasq
-##for first prior mentioned (sd = sqrt(5))
-
-sigmasq <-  rtruncnorm(10000,mean = 0, sd = sqrt(5),a = 0, b= Inf)
-
-jump.method <- inv.logit(rnorm(10000,0,sd = sqrt(sigmasq)))
-
-quantile(jump.method-0.5,seq(0,1,0.05))
-####
-
+hist(jump.method-0.5)
 
 #theta0 prior
 theta0 <- rnorm(100000,mean = 0,sd = sqrt(5))
