@@ -89,14 +89,15 @@ for(t in 2:T){
 for (k in 1:K){
 	for (t in 1:T){
     #		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		#Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
 	}
 }
 
 #priors
 theta0 ~ dnorm(-2, 1);
-sigmasq ~ dnorm(0, 1/5)T(0,);
+sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -141,14 +142,15 @@ for(t in 2:T){
 for (k in 1:K){
 	for (t in 1:T){
     #		Y[k,t] ~ dbin(1-(1-(P[t]/N))^phi[k,t],smalln[k,t])
-		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		#Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
 		#Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
 	}
 }
 
 #priors
 theta0 ~ dnorm(-2, 1);
-sigmasq ~ dnorm(0, 1/5)T(0,);
+sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -193,14 +195,15 @@ for(t in 2:T){
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		#Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
 	}
 }
 
 #priors
 theta0 ~ dnorm(-2, 1);
-sigmasq ~ dnorm(0, 1/5)T(0,);
-pisq ~ dnorm(0, 1/5)T(0,);
+sigmasq ~ dnorm(0, 1)T(0,);
+pisq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);

@@ -345,11 +345,16 @@ fb_df %>% ggplot(aes(x = ymd, y = est)) +
 
 
 #calculate gain here:
-gain <- (CI.ipsos$Upper[!is.na(data.list$Y[1,])]-CI.ipsos$Lower[!is.na(data.list$Y[1,])])/(CI.walk$Upper[!is.na(data.list$Y[1,])]-CI.walk$Lower[!is.na(data.list$Y[1,])])
+gain <- (CI.ipsos$Upper-CI.ipsos$Lower)/(CI.walk$Upper[!is.na(data.list.extended$Y[1,])]-CI.walk$Lower[!is.na(data.list.extended$Y[1,])])
 
-mean(gain)*100
-median(gain)*100
+mean(gain)*100 #153.7561
+median(gain)*100 #140.8209
 
+
+gain.barplot <- data.frame(date = fb_df$ymd[!is.na(data.list.extended$Y[1,])], ratio = gain) 
+
+ggplot(gain.barplot,aes(x = date,y =gain))+ geom_bar(stat = 'identity')+   scale_x_date(date_labels = "%b '%y", breaks = "1 month")+
+  theme_bw() + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of Axios-Ipsos 95% CI compared to the synthesis 95% CI") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) 
 
 
 linear.phi <- get.point.est(line.linear,"phi")
@@ -387,12 +392,6 @@ phi.dat <- data.frame(Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook"
 
 ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = Survey)) + geom_point()+ 
   geom_line() + facet_grid(Survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi[kt]), x = NULL,title = expression(paste(phi[kt]," by method and survey")))  +scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
-
-
-
-
-ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = survey)) + geom_point()+ 
-  geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi), x = NULL,title = "Plot of phi by method and survey, extended data") +scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
 
 
 summary(line.walk)

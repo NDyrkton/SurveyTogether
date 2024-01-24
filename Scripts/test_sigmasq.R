@@ -30,10 +30,12 @@ quantile(jump.method-0.5,seq(0,1,0.05))
 hist(jump.method-0.5)
 
 #theta0 prior
-theta0 <- rnorm(100000,mean = 0,sd = sqrt(5))
+theta0 <- rnorm(1000000,mean = 0,sd = sqrt(2))
 
 quantile(inv.logit(theta0),seq(0,1,0.05))
+inv.logit(quantile(theta0,seq(0,1,0.05)))
 
+hist(inv.logit(theta0))
 
 #test
 theta0 <- rnorm(100000,mean = 0,sd = sqrt(1))
