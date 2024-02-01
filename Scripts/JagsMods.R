@@ -15,16 +15,16 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 
 
 
 for(t in 2:T){
 
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],)
-	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)T(theta[t-1],)
+	#theta[t] ~ dunif(theta[t-1],theta[t-1]+rho)
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 #for(t in 1:T){
@@ -68,16 +68,16 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 
 
 
 for(t in 2:T){
 
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],)
-	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)T(theta[t-1],)
+	#theta[t] ~ dunif(theta[t-1],theta[t-1]+rho)
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 #for(t in 1:T){
@@ -128,11 +128,11 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],);
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)T(theta[t-1],);
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 #for(t in 1:T){
@@ -176,16 +176,16 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 
 
 
 for(t in 2:T){
 
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],)
-	#logitpositiverate[t] ~ dunif(logitpositiverate[t-1],logitpositiverate[t-1]+rho)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)T(theta[t-1],)
+	#theta[t] ~ dunif(theta[t-1],theta[t-1]+rho)
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 #for(t in 1:T){
@@ -233,11 +233,11 @@ for(t in 1:T){
   gamma[t] ~ dnorm(gamma0[k],1/pisq)
 }
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],);
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)T(theta[t-1],);
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 #for(t in 1:T){
@@ -287,11 +287,11 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)T(logitpositiverate[t-1],);
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)T(theta[t-1],);
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 #for(t in 1:T){

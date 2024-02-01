@@ -45,7 +45,7 @@ extract.unbiased.nona <- function(datalist,col = 1){
 
 
 
-get.point.est <- function(line,var){
+get.point.est <- function(line,var,type = "median"){
   
   
   point.est <- summary(line)$statistics
@@ -57,9 +57,18 @@ get.point.est <- function(line,var){
     return(point.est[1])
     
   }else{
-    means <- summary(line)$statistics[,1]
-    
-    return(means[grep(var,names(means))])
+    if(type == "mean"){
+      means <- summary(line)$statistics[,1]
+      return(means[grep(var,names(means))])
+      
+    }else if(type == "median"){
+      
+      medians <- summary(line)$quantiles[,3]
+      return(medians[grep(var,names(medians))])
+      
+      
+    }
+
   }
   
 }
@@ -232,15 +241,13 @@ chain4<- list(.RNG.name = "base::Super-Duper",
 
 
 #now run linear phi for each of the unbiased surveys
-
-
 line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
                           n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 #check convergence
 gelman.diag(line.ipsos)
 
-point.ipsos <- get.point.est(line.ipsos,"positiverate")
+point.ipsos <- get.point.est(line.ipsos,"positiverate",type = "median")
 CI.ipsos <- get.CI(line.ipsos,"positiverate")
 
 
@@ -249,7 +256,7 @@ line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamm
 
 gelman.diag(line.household)
 
-point.household <- get.point.est(line.household,"positiverate")
+point.household <- get.point.est(line.household,"positiverate",type = "median")
 CI.household <- get.CI(line.household,"positiverate")
 
 
@@ -258,47 +265,50 @@ line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1
 
 
 gelman.diag(line.facebook)
-point.facebook <- get.point.est(line.facebook,"positiverate")
+point.facebook <- get.point.est(line.facebook,"positiverate",type = "median")
 CI.facebook <-  get.CI(line.facebook,"positiverate")
 
 
 
-#run actual method (linear)
+#run method for three types of models for phi
+
+line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
+                          n.chains=4,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 line.linear <- jags.parfit(cl, data.list.extended, c("positiverate","sigmasq","phi"), custommodel(mod.linear.phi),
-                         n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                         n.chains=4,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
 line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.phi),
-                         n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                         n.chains=4,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
 
 
-line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
-                         n.chains=4,n.adapt = 500000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
-
-
-#gelman.diag(line.linear)
-gelman.diag(line.walk) 
-
-#constant model seems like it is mis-specified, does not converge.
+#constant model does not converge
 gelman.diag(line.const)
 
-point.const <-  get.point.est(line.const,"positiverate")
+#gelman.diag(line.linear) #notrun if phi is included --- phi is 1 for k = 1, thus the funciton won't work
+gelman.diag(line.walk) 
+
+
+#save all point estimates
+point.const <-  get.point.est(line.const,"positiverate",type = "median")
 CI.const <-  get.CI(line.const,"positiverate")
 
-point.linear <- get.point.est(line.linear,"positiverate")
+point.linear <- get.point.est(line.linear,"positiverate",type = "median")
 CI.linear <- get.CI(line.linear,"positiverate")
 
 
-point.walk <- get.point.est(line.walk,"positiverate")
+point.walk <- get.point.est(line.walk,"positiverate",type = "median")
 CI.walk <- get.CI(line.walk,"positiverate")
 
 
+
+#include indicator for respective dfs
 fb_df$mode <- rep("facebook",length(fb_df$ymd))
 chp_df$mode <- rep("household-pulse",length(chp_df$ymd))
 ax_df$mode <- rep("axios-ipsos",length(ax_df$ymd))
 
-
+#save all estimates to dfs
 fb_df$est <- point.facebook
 fb_df$CI_L <- CI.facebook$Lower
 fb_df$CI_U <- CI.facebook$Upper
@@ -312,22 +322,25 @@ ax_df$est <- point.ipsos
 ax_df$CI_L <- CI.ipsos$Lower
 ax_df$CI_U <- CI.ipsos$Upper
 
+cdc_df$est <- cdc_df$vax
 
+#data frame to compare positiverate estimates
 compare.method <- data.frame(Method = c(rep("const",48),rep("linear",48),rep("walk",48)), ests = c(point.const,point.linear,point.walk),
                              CI.L=c(CI.const$Lower,CI.linear$Lower,CI.walk$Lower),CI.U=c(CI.const$Upper,CI.linear$Upper,CI.walk$Upper),dates = ref.dates)
 
 
-
+#Figure.
 ggplot(data = compare.method,aes(x=dates,y = ests,color = Method)) + geom_point() + 
   geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0) + theme_bw() + labs(x = NULL,y = "% of the population with at least one vaccine",title = expression(paste("Posterior estimates of % vaccinated by model for ",phi)))+
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
+
+#prefered method (random walk model for phi) to be plotted against all single survey estimates
 method_df <- data.frame(ymd = ref.dates, est = point.walk, CI_L = CI.walk$Lower, CI_U=CI.walk$Upper)
 
-cdc_df$est <- cdc_df$vax
 
 
-
+#Main plot to compare (inference plot)
 fb_df %>% ggplot(aes(x = ymd, y = est)) + 
   geom_ribbon(data = cdc_df, aes(ymin = vax_lb, ymax = vax_ub), alpha = 0.3, color = "grey50") + 
   geom_pointline(aes(x = ymd, y = est),color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df,aes(x=ymd, y = est), color = "#cf7a30") + 
@@ -357,11 +370,16 @@ ggplot(gain.barplot,aes(x = date,y =gain))+ geom_bar(stat = 'identity')+   scale
   theme_bw() + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of Axios-Ipsos 95% CI compared to the synthesis 95% CI") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) 
 
 
+#collect estimates for phis by model
+
 linear.phi <- get.point.est(line.linear,"phi")
 CI.linear.phi <- get.CI(line.linear,"phi")
 
+
+#Filter out cases where phi = 1, JAGS will automatically return all phi estimates (including for the unbiased survey)
 linear.phi.2 <- linear.phi[seq(2,(48*3)-1,by = 3)]
 linear.phi.3 <- linear.phi[seq(3,(48*3),by = 3)]
+#.3 referes to k = 3, delphi-facebook, (third row of data.list.extended)
 
 CI.linear.phi.2 <- lapply(CI.linear.phi,function(x){x[seq(2,(48*3)-1,by = 3)]})
 CI.linear.phi.3 <- lapply(CI.linear.phi,function(x){x[seq(3,(48*3),by = 3)]})
@@ -383,6 +401,8 @@ CI.U_gamma2 <- gamma.CI$Upper[seq(1,96,by = 2)]
 CI.L_gamma3 <- gamma.CI$Lower[-seq(1,96,by = 2)]
 CI.U_gamma3 <- gamma.CI$Upper[-seq(1,96,by = 2)]
 
+
+#concatenate into one large dataset
 phi.dat <- data.frame(Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48)),
                       Method = c(rep("const",48),rep("const",48),rep("linear",48),rep("linear",48),rep("walk",48),rep("walk",48)),
                       phi = c(exp(rep(point.const[1],48)),exp(rep(point.const[2],48)),linear.phi.2,linear.phi.3,exp(point.gamma2),exp(point.gamma3)),
@@ -390,11 +410,13 @@ phi.dat <- data.frame(Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook"
                       CI.U =c(exp(rep(CI.const$Upper[1],48)),exp(rep(CI.const$Upper[2],48)),CI.linear.phi.2$Upper,CI.linear.phi.3$Upper,exp(CI.U_gamma2),exp(CI.U_gamma3)),
                       t= c(ref.dates,ref.dates,ref.dates,ref.dates,ref.dates,ref.dates))
 
+
+#plot of comparison of phi estimates over time by method.
 ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = Survey)) + geom_point()+ 
   geom_line() + facet_grid(Survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi[kt]), x = NULL,title = expression(paste(phi[kt]," by method and survey")))  +scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
 
 
-summary(line.walk)
+#summary(line.walk)
 
 
 

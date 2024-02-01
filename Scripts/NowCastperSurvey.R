@@ -49,7 +49,7 @@ extract.t <- function(list,t){
 
 
 
-get.point.est <- function(line,var){
+get.point.est <- function(line,var,type = "median"){
   
   
   point.est <- summary(line)$statistics
@@ -61,9 +61,18 @@ get.point.est <- function(line,var){
     return(point.est[1])
     
   }else{
-    means <- summary(line)$statistics[,1]
+    if(type == "mean"){
+      means <- summary(line)$statistics[,1]
+      return(means[grep(var,names(means))])
+      
+    }else if(type == "median"){
+      
+      medians <- summary(line)$quantiles[,3]
+      return(medians[grep(var,names(medians))])
+      
+      
+    }
     
-    return(means[grep(var,names(means))])
   }
   
 }
@@ -172,8 +181,12 @@ pisq.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 data.list.fb <- extract.surveys(data.list,c(1,3))
 data.list.hp <- extract.surveys(data.list,c(1,2))
 
+
+#start for-loop for all now-cast estimates.
 for(t in 1:fb.len){
   print(t)
+  
+  #initialize seet for all chains
   
   chain1<- list(.RNG.name = "base::Wichmann-Hill", 
                 .RNG.seed = c(159+2*t))
@@ -195,25 +208,30 @@ for(t in 1:fb.len){
   inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
   
 
+  #data.t is the data for all surveys up to time t
   data.t <- extract.t(data.list,t)
+  
+  #"" for facebook 
   data.list.fb.t <- extract.t(data.list.fb,t)
-  data.list.hp.t <- extract.t(data.list.hp,t)
 
   
 
   ###ipsos run##
   if(t %in% c(1:ipsos.len)){
-
+    
+    #data unique to ipsos
     ipsos.t <- extract.t(ipsos.dat,t)
 
     line.ipsos <- jags.parfit(cl,ipsos.t, c("positiverate"), custommodel(mod.linear.phi),
                               n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
-
+    
+    #get point estimate.
     ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")[t]
+    
+    #gelman.diag(line.ipsos)
 
-    gelman.diag(line.ipsos)
-
-
+  
+    #get interval estimates
     ipsos.CIs <- get.CI(line.ipsos,"positiverate")
     ipsos.CI$CI.U[t] <- ipsos.CIs$Upper[t]
     ipsos.CI$CI.L[t] <- ipsos.CIs$Lower[t]
@@ -222,6 +240,7 @@ for(t in 1:fb.len){
 
   }
 
+  #etc for all three surveys
   if(t %in% c(1:household.len)){
     household.t <- extract.t(household.dat,t)
 
@@ -241,7 +260,6 @@ for(t in 1:fb.len){
 ###facebook and full###
 
   facebook.t <- extract.t(facebook.dat,t)
-
   line.facebook <- jags.parfit(cl, facebook.t, c("positiverate"), custommodel(mod.linear.phi),
                              n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
 
@@ -256,7 +274,7 @@ for(t in 1:fb.len){
   
   
   
-
+  #run models for all surveys (random walk)
   line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
                            n.chains=8,n.adapt = 350000,thin = 5, n.iter = 300000
                            ,inits = inits.chains)
@@ -267,6 +285,7 @@ for(t in 1:fb.len){
                                n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
                                ,inits = inits.chains)
   
+  #check for any lack of convergence (in current run, no convergence issues detected)
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
     print("failed")
 
