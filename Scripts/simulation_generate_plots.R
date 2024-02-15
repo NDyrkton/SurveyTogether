@@ -40,26 +40,26 @@ apply(100*model,2,mean)
 apply(100*unbiased,2,mean)
 
 
-##redone with N = 10,000,000
+##redone with N = 10,000,000, and new binomial approximation
 
 
 
-t5 <- read.csv("Data/RMSE_1000_large_N.csv")
-t10 <- read.csv("Data/RMSE_t10_1000_large_N.csv")
-t15 <- read.csv("Data/RMSE_t15_1000_large_N.csv")
+t5 <- read.csv("Data/RMSE_1000_large_N_binom2.csv")
+t10 <- read.csv("Data/RMSE_t10_1000_large_N_binom2.csv")
+t15 <- read.csv("Data/RMSE_t15_1000_large_N_binom2.csv")
 
-t5$time <- rep("5 timepoints",12)
-t10$time <- rep("10 timepoints",12)
-t15$time <- rep("15 timepoints",12)
+t5$time <- rep("5 time-points",12)
+t10$time <- rep("10 time-points",12)
+t15$time <- rep("15 time-points",12)
 
 
 
 all.time <- rbind(t5,t10,t15)
 
-all.time$time <- factor(all.time$time,levels = c("5 timepoints","10 timepoints","15 timepoints"))
+all.time$time <- factor(all.time$time,levels = c("5 time-points","10 time-points","15 time-points"))
 
 ggplot(data = all.time, aes(x = data, y = RMSE, group = model,colour = model)) + geom_point() + geom_line(linewidth = 0.75) + theme_bw() +
-  facet_grid(.~time) + labs(x = "Data generation", y = "Root Mean Squared Error x 100", title = paste("RMSE of 1000 reptitions: 5, 10, and 15 timepoints")) +
+  facet_grid(.~time) + labs(x = "Data generation", y = "Root Mean Squared Error x 100", title = paste("RMSE of 1000 reptitions: 5, 10, and 15 time-points")) +
   scale_color_manual(values = c("const"="red","linear" = "green",walk="blue",unbiased = "black"))
 
 #########using N = 100,000

@@ -22,17 +22,26 @@ logit <- function(x){
 }
 
 #now fixed to be consistent with notation in paper.
-generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t)), phi = "constant"){
+generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
-
-  smalln <- if (is.matrix(ns)) ns  else t(matrix(rep(ns,K),ncol = K));
+  smalln <- matrix(0,ncol = length(t),nrow = K)
+  #get default smalln
+  
+  for(k in 1:K){
+    smalln[k,] <- rep(100,length(t))
+    
+    if(k>1){
+      smalln[k,] <- rep(1000,length(t))
+    }
+  }
+  
   posrate_t <- numeric(length(t))
   theta_t <- numeric(length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
-  theta0 <- rnorm(1,mean =0, sd = sqrt(1))
+  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1))
+  theta0 <- rnorm(1,mean =0, sd = sqrt(2))
   
   if(phi == "constant"){
     #generate param based on prior
@@ -72,7 +81,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     phi_kt <- matrix(NA,nrow =K,ncol = length(t))
     #priors
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(0.25,K-1)))
+    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.25),K-1)))
     
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
@@ -113,7 +122,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
     gamma_kt[1,] <- rep(0,length(t))
     #prior
     
-    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/100))
     
     
     
@@ -160,47 +169,8 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(100,length(t))
 }
 
 
-#JAGS MODEL for constant phi
-mod.const.phi<- custommodel('
-model{	
-#likelihood
 
-for (t in 1:T){
-		phi[1,t] <- 1	}
-
-for (k in 2:K){
-	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k])
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
-
-for (k in 1:K){
-	for (t in 1:T){
-		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
-	}
-}
-
-#priors
-theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.1)T(0,);
-
-for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1);
-}
-}')
+#JAGS MODELs
 
 mod.linear.phi <- custommodel('
 model{	
@@ -235,8 +205,8 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 1);
-sigmasq ~ dnorm(0, 1/0.1)T(0,);
+theta0 ~ dnorm(0, 2);
+sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 1:K){
 	gamma0[k] ~ dnorm(0, 1);
@@ -244,57 +214,6 @@ for (k in 1:K){
 }
 }')
 
-mod.walk.phi <- custommodel('
-model{	
-#likelihood
-
-for (i in 1:T){
-		phi[1,i] <- 1	
-}
-
-
-for (k in 2:K){
-
-  gamma[k,1] ~ dnorm(gamma0[k],1/pisq)
-  phi[k,1] <- exp(gamma[k,1])
-  
-	for (t in 2:T){
-	  gamma[k,t] ~ dnorm(gamma[k,t-1], 1/pisq)
-	  phi[k,t] <- exp(gamma[k,t])
-	  
-	}
-}
-	
-	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
-for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1],1/sigmasq)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
-}
-
-for(t in 1:T){
-	P[t] ~ dbin(positiverate[t], N)
-}
-
-for (k in 1:K){
-	for (t in 1:T){
-		
-		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
-	}
-}
-
-#priors
-theta0 ~ dnorm(0, 1/0.5);
-sigmasq ~ dnorm(0, 1/0.1)T(0,);
-pisq ~ dnorm(0, 1/0.01)T(0,);
-
-for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1);
-
-}
-
-}')
 
 
 cl <- makePSOCKcluster(4)
@@ -307,10 +226,7 @@ parLoadModule(cl,"lecuyer")
 set.seed(31525)
 
 #generate dataset
-
-new.n <- matrix(c(rep(100,10), rep(1000,10), rep(1000,10)), ncol = 10,nrow = 3,byrow = T)
-
-data <- generate.dataset(N=100000,K = 3,t = c(1:10), phi = "linear",ns= new.n)
+data <- generate.dataset(N=100000,K = 3,t = c(1:10), phi = "linear")
 
 
 K_1 <- extract.surveys(data,1)
@@ -364,18 +280,25 @@ CI.full <- get.CI(line.full, 'positiverate')
 
 
 
-frame <- data.frame(Survey = c(rep("(k=1)",10),rep("(k=2)",10),rep("(k=3)",10),rep("Method",10)),time = c(1:10,1:10,1:10,1:10), 
+frame <- data.frame(Survey = c(rep("Survey 1",10),rep("Survey 2",10),rep("Survey 3",10),rep("Method",10)),time = c(1:10,1:10,1:10,1:10), 
                                estimate = c(posrate.1,posrate.2,posrate.3,posrate.full),CI.L = c(CI.1$Lower,CI.2$Lower,CI.3$Lower,CI.full$Lower),
                                CI.U = c(CI.1$Upper,CI.2$Upper,CI.3$Upper,CI.full$Upper))
                     
 frame.posrate <-  data.frame(time = c(1:10),posrate = data$params[grep("posrate",names(data$params))])
 
 library(RColorBrewer)
-ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line() + 
+ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line(linewidth= 0.75) + 
   geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw() + 
   labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
-  geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linetype = "dashed") + scale_colour_brewer(palette = "Dark2")
+  geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linewidth = 1.20) + 
+  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"black"))    
+
+
+
   
 
 
 mean((CI.1$Upper-CI.1$Lower)/(CI.full$Upper-CI.full$Lower))
+
+#now-cast
+(CI.1$Upper[10]-CI.1$Lower[10])/(CI.full$Upper[10]-CI.full$Lower[10])

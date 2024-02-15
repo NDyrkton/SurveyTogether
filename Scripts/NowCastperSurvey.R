@@ -130,14 +130,6 @@ household.dat <- extract.unbiased.nona(data.list,col= 2)
 facebook.dat <- extract.unbiased.nona(data.list,col = 3)
 
 
-cl <- makePSOCKcluster(8)
-
-clusterEvalQ(cl, library(dclone))
-load.module("lecuyer")
-parLoadModule(cl,"lecuyer")
-
-dcoptions("verbose"=F)#mute the output of dclone
-
 ipsos.len <- length(ipsos.dat$Y)
 fb.len <- length(facebook.dat$Y)
 household.len <- length(household.dat$Y)
@@ -183,6 +175,15 @@ data.list.hp <- extract.surveys(data.list,c(1,2))
 
 
 #start for-loop for all now-cast estimates.
+
+
+cl <- makePSOCKcluster(10)
+
+clusterEvalQ(cl, library(dclone))
+load.module("lecuyer")
+parLoadModule(cl,"lecuyer")
+
+dcoptions("verbose"=F)#mute the output of dclone
 for(t in 1:fb.len){
   print(t)
   
@@ -204,8 +205,12 @@ for(t in 1:fb.len){
                 .RNG.seed = c(371+8*t))
   chain8<- list(.RNG.name = "base::Super-Duper", 
                 .RNG.seed = c(482+9*t))
+  chain9<- list(.RNG.name = "base::Wichmann-Hill", 
+                .RNG.seed = c(351+10*t))
+  chain10<- list(.RNG.name = "base::Super-Duper", 
+                .RNG.seed = c(132+11*t))  
   
-  inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
+  inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8,chain9,chain10)
   
 
   #data.t is the data for all surveys up to time t
@@ -213,7 +218,7 @@ for(t in 1:fb.len){
   
   #"" for facebook 
   data.list.fb.t <- extract.t(data.list.fb,t)
-
+  data.list.hp.t <- extract.t(data.list.hp,t)
   
 
   ###ipsos run##
@@ -223,7 +228,7 @@ for(t in 1:fb.len){
     ipsos.t <- extract.t(ipsos.dat,t)
 
     line.ipsos <- jags.parfit(cl,ipsos.t, c("positiverate"), custommodel(mod.linear.phi),
-                              n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
+                              n.chains=10,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
     
     #get point estimate.
     ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")[t]
@@ -245,7 +250,7 @@ for(t in 1:fb.len){
     household.t <- extract.t(household.dat,t)
 
     line.household <- jags.parfit(cl,household.t, c("positiverate"), custommodel(mod.linear.phi),
-                                  n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
+                                  n.chains=10,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
 
     household.posrates[t] <- get.point.est(line.household,"positiverate")[t]
     household.CIs <- get.CI(line.household,"positiverate")
@@ -261,7 +266,7 @@ for(t in 1:fb.len){
 
   facebook.t <- extract.t(facebook.dat,t)
   line.facebook <- jags.parfit(cl, facebook.t, c("positiverate"), custommodel(mod.linear.phi),
-                             n.chains=8,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
+                             n.chains=10,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
 
   facebook.posrates[t] <- get.point.est(line.facebook,"positiverate")[t]
 
@@ -276,21 +281,26 @@ for(t in 1:fb.len){
   
   #run models for all surveys (random walk)
   line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                           n.chains=8,n.adapt = 350000,thin = 5, n.iter = 300000
+                           n.chains=10,n.adapt = 400000,thin = 5, n.iter = 400000
                            ,inits = inits.chains)
   line.fb.axios <- jags.parfit(cl, data.list.fb.t, c("positiverate"), custommodel(mod.walk.phi),
-                               n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
+                               n.chains=10,n.adapt = 200000,thin = 5, n.iter = 400000
                                ,inits = inits.chains)
   line.hp.axios <- jags.parfit(cl, data.list.hp.t, c("positiverate"), custommodel(mod.walk.phi),
-                               n.chains=8,n.adapt = 300000,thin = 5, n.iter = 250000
+                               n.chains=10,n.adapt = 200000,thin = 5, n.iter = 400000
                                ,inits = inits.chains)
   
   #check for any lack of convergence (in current run, no convergence issues detected)
   if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
+    
+    
     print("failed")
+    
+    print(gelman.diag(line.full))
+    
 
     line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                             n.chains=8,n.adapt = 500000,thin = 5, n.iter = 600000,inits = inits.chains)
+                             n.chains=10,n.adapt = 500000,thin = 5, n.iter = 700000,inits = inits.chains)
 
     print(gelman.diag(line.full))
 
@@ -350,11 +360,24 @@ for(t in 1:fb.len){
 
 }
 
+fb_df <- read.csv("Data/fb.csv")
+cdc_df <- read.csv("Data/cdc.csv")
+chp_df <- read.csv("Data/chp.csv")
+ax_df <- read.csv("Data/ax.csv")
+ax_n <- read.csv("Data/ax_n.csv")
+ax_df <- ax_df[nrow(ax_df):1,]
+
 #save results in data frame.
 results.nowcast.full <- list(posrate = list(est = full.posrates,CI.L = full.CI$CI.L,CI.U = full.CI$CI.U),
                              sigmasq = list(est = sigmasq,CI.L = sigmasq.CI$CI.L,CI.U = sigmasq.CI$CI.U),
                              pisq = list(est = pisq.est,CI.L = pisq.CI$CI.L,CI.U = pisq.CI$CI.U),
                              phi = list(est.household = phi.household,est.facebook = phi.facebook, CI.household.L = phi.household.CI$CI.L, CI.household.U = phi.household.CI$CI.U, CI.facebook.L = phi.facebook.CI$CI.L, CI.facebook.U = phi.facebook.CI$CI.U))
+
+
+fb_df$ymd <- as.Date(fb_df$ymd)
+cdc_df$ymd <- as.Date(cdc_df$ymd)
+chp_df$ymd <- as.Date(chp_df$ymd)
+ax_df$ymd <- as.Date(ax_df$ymd)
 
 
 
@@ -372,7 +395,9 @@ ax_df$CI.L <- ipsos.CI$CI.L
 ax_df$CI.U <- ipsos.CI$CI.U
 
 cdc_df$point.est <- cdc_df$vax
-
+#maybe?
+cdc_df$vax_lb2 <- cdc_df$vax*0.95
+cdc_df$vax_ub2 <- cdc_df$vax*1.05
 
 
 ref.dates <- fb_df$ymd
@@ -385,11 +410,11 @@ method_df <- data.frame(ymd = ref.dates, point.est = full.posrates, CI.L = full.
 
 
 
-fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0)+
-  geom_ribbon(data = cdc_df, aes(ymin = vax_lb, ymax = vax_ub), alpha = 0.3, color = "grey50") + 
+fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0,color = "#4891dc")+
+  geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
   geom_pointline(color = "#4891dc") + geom_pointline(data = ax_df,aes(x = ymd, y = point.est), color = "#cf7a30") + 
   geom_errorbar(data = ax_df, aes(ymin = CI.L, ymax = CI.U), color = "#cf7a30", width = 0) + 
-  geom_pointline(data = chp_df, color = "#69913b")  + geom_errorbar(data = chp_df,aes(ymin = CI.L, ymax = CI.U),width = 0)+
+  geom_pointline(data = chp_df, color = "#69913b")  + geom_errorbar(data = chp_df,aes(ymin = CI.L, ymax = CI.U),color = "#69913b",width = 0)+
   geom_pointline(data = method_df,aes(x = ymd, y = point.est),color = "magenta") + geom_errorbar(data = method_df,aes(ymin = CI.L,ymax = CI.U),color = 'magenta',width = 0)+
   scale_x_date(date_labels = "%b '%y", breaks = "1 month") + 
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + 
@@ -398,9 +423,9 @@ fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ym
   annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 3, label = "Method", color = "magenta")+
   annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
   annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
-  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)  + 
-  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.text = element_text(color = "black"), plot.caption = element_markdown(color = "grey40"))+ ggtitle("Now-cast performance of the synthesis method")
+  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)  + ggtitle("Now-cast performance of the synthesis method")
 
+#code from 
 #Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.
 
 
@@ -412,7 +437,7 @@ phi.df <- data.frame(ymd = c(ref.dates,ref.dates), survey = c(rep("household",48
 
 
 ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
-  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",sigma^2)),title = expression(paste("Estimates of ",sigma^2, "over time"))) 
+  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",sigma^2)),title = expression(paste("Estimates of ",sigma^2, "over time"))) +   scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 
 ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
@@ -421,22 +446,22 @@ ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_p
 #mean gain
 gain <- (ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])
 
-mean(gain)
-median(gain)
+mean(gain)#  1.235847 #24 % 
+median(gain) # 1.242806 $24%
 
-#79.9% method CI are 79.9% the size of axios alone
+#the AX CI is 23% larger median and mean
 
 
 #get graph for pisq
 
 pisq.df <- data.frame(ymd = ref.dates, point.est = pisq.est, CI.L = pisq.CI$CI.L,CI.U = pisq.CI$CI.U)
 ggplot(pisq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
-  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",pi^2)),title = expression(paste("Estimates of ",pi^2, "over time"))) 
+  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",pi^2)),title = expression(paste("Estimates of ",pi^2, "over time")))  +   scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 
 
 
-####################
+#################### # save data
 write.csv(fb_df,"Data/fb_df_new.csv",row.names = F)
 write.csv(chp_df,"Data/chp_df_new.csv",row.names = F)
 write.csv(ax_df,"Data/ax_df_new.csv",row.names = F)
@@ -473,25 +498,35 @@ phat <- ax_df$point.est
 n.old <- (1.96^2 * phat*(1-phat))/MOE.ax^2
 n.new <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.fb)^2
 
-mean(n.new-n.old) # gain of n = 609
-median(n.new-n.old) 
+mean(n.new-n.old) #534.468
+median(n.new-n.old) # 443.0177
 
 n.new.hp <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.hp)^2
 
-mean(n.new.hp-n.old) # n = 245 gain
-median(n.new.hp-n.old)
+mean(n.new.hp-n.old) # 235.0211
+median(n.new.hp-n.old) #131.0021
 #combined
 
 n.new.full <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.full)^2
 
 
-mean(n.new.full-n.old) # 924 gain
+mean(n.new.full-n.old) #  825.247
 
-median(n.new.full-n.old)
+median(n.new.full-n.old)# 817.2348
 
 
 n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("Both Surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
 
 ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw() + 
-  labs(x ="Date",y = "Number of iid samples gained compared to Ipsos-Axios",title = "Barplot of number of iid samples gained when including the biased surveys",fill = "Survey")+scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
+  labs(x ="Date",y = "Number of iid samples gained compared to Axios-Ipsos",title = "Barplot of number of iid samples gained when including the biased surveys",fill = "Survey")+scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
 
+write.csv(fb_df,"Data/fb_df_new.csv",row.names = F)
+write.csv(chp_df,"Data/chp_df_new.csv",row.names = F)
+write.csv(ax_df,"Data/ax_df_new.csv",row.names = F)
+write.csv(method_df,"Data/nowcast_rw.csv",row.names = F)
+write.csv(n.df,"Data/n_idd_df.csv",row.names = F)
+write.csv(pisq.df,"Data/pisq_df.csv",row.names = F)
+write.csv(sigmasq.df,"Data/sigmasq_df.csv",row.names = F)
+
+
+save.image(file = "Results/NowCastResults.RData")

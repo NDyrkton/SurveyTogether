@@ -284,10 +284,10 @@ line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigma
 
 
 #constant model does not converge
-gelman.diag(line.const)
+#gelman.diag(line.const)
 
 #gelman.diag(line.linear) #notrun if phi is included --- phi is 1 for k = 1, thus the funciton won't work
-gelman.diag(line.walk) 
+#gelman.diag(line.walk) 
 
 
 #save all point estimates
@@ -360,14 +360,16 @@ fb_df %>% ggplot(aes(x = ymd, y = est)) +
 #calculate gain here:
 gain <- (CI.ipsos$Upper-CI.ipsos$Lower)/(CI.walk$Upper[!is.na(data.list.extended$Y[1,])]-CI.walk$Lower[!is.na(data.list.extended$Y[1,])])
 
-mean(gain)*100 #153.7561
-median(gain)*100 #140.8209
+mean(gain)*100 #154.1535
+median(gain)*100 #142.3487
 
 
 gain.barplot <- data.frame(date = fb_df$ymd[!is.na(data.list.extended$Y[1,])], ratio = gain) 
 
 ggplot(gain.barplot,aes(x = date,y =gain))+ geom_bar(stat = 'identity')+   scale_x_date(date_labels = "%b '%y", breaks = "1 month")+
-  theme_bw() + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of Axios-Ipsos 95% CI compared to the synthesis 95% CI") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) 
+  theme_bw() + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of 95% Credible Interval of Axios-Ipsos compared to the synthesis method") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) +
+  annotate("text", x = as.Date("2021-10-5"), y = 1.65, size = 3, label = "Mean", color = "blue") + 
+  annotate("text", x = as.Date("2021-10-25"), y = 1.35, size = 3, label = "Median", color = "red")
 
 
 #collect estimates for phis by model
