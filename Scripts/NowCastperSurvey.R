@@ -432,7 +432,7 @@ fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ym
 
 
 sigmasq.df <- data.frame(ymd = ref.dates, point.est = sigmasq, CI.L = sigmasq.CI$CI.L,CI.U = sigmasq.CI$CI.U)
-phi.df <- data.frame(ymd = c(ref.dates,ref.dates), survey = c(rep("household",48),rep("facebook",48)),
+phi.df <- data.frame(ymd = c(ref.dates,ref.dates), Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook",48)),
                      point.est = c(phi.household,phi.facebook),CI.L = c(phi.household.CI$CI.L,phi.facebook.CI$CI.L), CI.U = c(phi.household.CI$CI.U,phi.facebook.CI$CI.U))
 
 
@@ -440,8 +440,11 @@ ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + g
   theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",sigma^2)),title = expression(paste("Estimates of ",sigma^2, "over time"))) +   scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 
-ggplot(phi.df,aes(x = ymd, y= point.est, color = survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
-  theme_bw() + ylim(0,2)
+#now-cast-phi
+ggplot(phi.df,aes(x = ymd, y= point.est, color = Survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
+  theme_bw() + ylim(0.5,2.5)  + scale_x_date(date_labels = "%b '%y", breaks = "1 month") + scale_color_manual(values = c("#4891dc","#69913b")) +
+  labs(x = "Date", y = expression(paste("Estimates of ",phi)),title = expression(paste("Now-cast posterior estimates of ",phi," by survey"))) 
+  
 
 #mean gain
 gain <- (ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])

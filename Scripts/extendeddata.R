@@ -324,6 +324,10 @@ ax_df$CI_U <- CI.ipsos$Upper
 
 cdc_df$est <- cdc_df$vax
 
+cdc_df$vax_lb2 <- cdc_df$vax*0.95
+cdc_df$vax_ub2 <- cdc_df$vax*1.05
+
+
 #data frame to compare positiverate estimates
 compare.method <- data.frame(Method = c(rep("const",48),rep("linear",48),rep("walk",48)), ests = c(point.const,point.linear,point.walk),
                              CI.L=c(CI.const$Lower,CI.linear$Lower,CI.walk$Lower),CI.U=c(CI.const$Upper,CI.linear$Upper,CI.walk$Upper),dates = ref.dates)
@@ -342,7 +346,7 @@ method_df <- data.frame(ymd = ref.dates, est = point.walk, CI_L = CI.walk$Lower,
 
 #Main plot to compare (inference plot)
 fb_df %>% ggplot(aes(x = ymd, y = est)) + 
-  geom_ribbon(data = cdc_df, aes(ymin = vax_lb, ymax = vax_ub), alpha = 0.3, color = "grey50") + 
+  geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
   geom_pointline(aes(x = ymd, y = est),color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df,aes(x=ymd, y = est), color = "#cf7a30") + 
   geom_errorbar(data = ax_df, aes(ymin = CI_L, ymax = CI_U), color = "#cf7a30", width = 0) + 
   geom_pointline(data = chp_df,aes(x = ymd, y = est), color = "#69913b")  + geom_errorbar(data = chp_df, aes(ymin = CI_L, ymax = CI_U), color = "#69913b", width = 0) +
