@@ -11,7 +11,7 @@ calculate.MCSE <- function(MSE,dataset){
   x <- dataset
   
   for(i in 1:ncol(x)){
-    MCSE[i] <-   sqrt(sum((x^2-MSE[i])^2   /  (nrow(x)*(nrow(x)-1))))
+    MCSE[i] <-   sqrt(    sum((x^2-MSE[i])^2   /  (nrow(x)*(nrow(x)-1)))     )
   }
   
   return(MCSE)
