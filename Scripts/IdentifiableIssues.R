@@ -210,6 +210,50 @@ for (k in 1:K){
 }
 }')
 
+
+
+mod.const.phi.hyper <- custommodel('
+model{	
+#likelihood
+
+for (t in 1:T){
+		phi[1,t] <- 1	}
+
+for (k in 2:K){
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+for(t in 1:T){
+	P[t] ~ dbin(positiverate[t], N)
+}
+
+for (k in 1:K){
+	for (t in 1:T){
+		
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(0, 2);
+sigmasq ~ dnorm(0, 1)T(0,);
+
+for (k in 2:K){
+	gamma0[k] ~ dnorm(0, 1);
+}
+}')
+
+
 mod.linear.phi <- custommodel('
 model{	
 #likelihood
@@ -563,4 +607,13 @@ models <- results.plot.final[1:100,]
 unbiased <- results.plot.final[101:200,]
 apply(models*100,2,mean)
 apply(unbiased*100,2,mean)
+
+
+
+data.test <- extract.unbiased(data.const[[1]])
+
+
+jags.test <- jags.parfit(cl, data.test, c("positiverate",'gamma0','sigmasq'), mod.const.phi,
+                          n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000)
+
 

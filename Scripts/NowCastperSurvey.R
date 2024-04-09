@@ -533,3 +533,7 @@ write.csv(sigmasq.df,"Data/sigmasq_df.csv",row.names = F)
 
 
 save.image(file = "Results/NowCastResults.RData")
+
+
+
+
