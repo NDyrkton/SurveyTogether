@@ -28,7 +28,7 @@ chp_df$ymd <- as.Date(chp_df$ymd)
 ax_df$ymd <- as.Date(ax_df$ymd)
 
 
-
+#original graph, extends data from bradley et al. Includes 5% margin of error.
 
 fb_df %>% ggplot(aes(x = ymd, y =vax)) +
   geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 

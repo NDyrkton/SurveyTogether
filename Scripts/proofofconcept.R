@@ -21,6 +21,26 @@ logit <- function(x){
   log(x/(1-x))
 }
 
+
+extract.surveys <- function(datalist,row = 1){
+  #function extracts given surveys from data list
+  #same as extract.nona but does not shorten
+  
+  K <-  length(row)
+  Y <- datalist$Y[row,]
+  
+  smalln <- datalist$smalln[row,]
+  times <- datalist$times[row,]
+  T <- datalist$T
+  
+  new.list <- list(K = K, 
+                   times = matrix(times,ncol = T), N = datalist$N, T = T,
+                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+  return(new.list)
+  
+}
+
+
 #now fixed to be consistent with notation in paper.
 generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
@@ -186,11 +206,11 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1], 1/sigmasq)
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 for(t in 1:T){
@@ -259,7 +279,7 @@ line.3 <- jags.parfit(cl, K_3, c("positiverate"), custommodel(mod.linear.phi),
                       n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 
-line.full <- jags.parfit(cl, data, c("positiverate"), custommodel(mod.linear.phi),
+line.full <- jags.parfit(cl, data, c("positiverate","gamma0",'gamma1'), custommodel(mod.linear.phi),
                       n.chains=4,n.adapt = 200000,thin = 5, n.iter = 100000
                       ,inits = inits.chains)
 

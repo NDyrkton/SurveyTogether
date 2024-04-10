@@ -245,14 +245,13 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 2);
-sigmasq ~ dnorm(0, 1)T(0,);
+theta0 ~ dnorm(1, 1/0.01);
+sigmasq ~ dnorm(0.662, 1/0.01)T(0,);
 
-for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-}
+gamma0[2] ~ dnorm(-0.16,1/0.01)
+gamma0[3] ~ dnorm(2.28,1/0.01)
+
 }')
-
 
 mod.linear.phi <- custommodel('
 model{	
@@ -613,7 +612,7 @@ apply(unbiased*100,2,mean)
 data.test <- extract.unbiased(data.const[[1]])
 
 
-jags.test <- jags.parfit(cl, data.test, c("positiverate",'gamma0','sigmasq'), mod.const.phi,
+jags.test <- jags.parfit(cl, data.test, c("positiverate",'gamma0','sigmasq'), mod.const.phi.hyper,
                           n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000)
 
 
