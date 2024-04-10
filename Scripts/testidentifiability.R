@@ -1,6 +1,59 @@
 
+#Survey Together Simulation Study
+#3x3 Design         Nathaniel Dyrkton  Supervised by Paul Gustafson and Harlan Campbell
 library(MCMCpack)
+library(rjags)
 library(truncnorm)
+library(ggplot2)
+library(dclone)
+
+#T = 10, 10 timpoints
+
+
+mod.const.phi<- custommodel('
+model{	
+#likelihood
+
+for (t in 1:T){
+		phi[1,t] <- 1	}
+
+for (k in 2:K){
+	for (t in 1:T){
+		phi[k,t] <- exp(gamma0[k])
+	}
+}
+	
+	
+logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(logitpositiverate[1])
+for(t in 2:T){
+	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
+	positiverate[t]	<- ilogit(logitpositiverate[t])
+}
+
+for(t in 1:T){
+	P[t] ~ dbin(positiverate[t], N)
+}
+
+for (k in 1:K){
+	for (t in 1:T){
+		
+		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
+	}
+}
+
+#priors
+theta0 ~ dnorm(0, 1/10);
+sigmasq ~ dnorm(0, 1/0.1)T(0,);
+
+for (k in 1:K){
+	gamma0[k] ~ dnorm(0, 1/10);
+}
+}')
+
+#First step is to generate data under 3 conditions for phi (bias term)
+#1: Phi is constant by  time, 2: Phi is linear in time, and 3: Phi follows a random walk 
+
 
 inv.logit <- function(x){
   exp(x)/(1+exp(x))
@@ -10,21 +63,30 @@ logit <- function(x){
   log(x/(1-x))
 }
 
-#now fixed to be consistent with notation in paper.
-generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(1000,length(t)), phi = "constant"){
+modified.generate.dataset <- function(N= 10000, K =3, t = c(1:5), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
-  smalln <- t(matrix(rep(ns,K),ncol = K))
+  smalln <- matrix(0,ncol = length(t),nrow = K)
+  #get default smalln
+  
+  for(k in 1:K){
+    smalln[k,] <- rep(100,length(t))
+    
+    if(k>1){
+      smalln[k,] <- rep(1000,length(t))
+    }
+  }
+  
   posrate_t <- numeric(length(t))
   theta_t <- numeric(length(t))
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.5))
-  theta0 <- rnorm(1,mean =0, sd = sqrt(0.5))
+  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
+  theta0 <- rnorm(1,mean =2, sd = sqrt(1))
   
   if(phi == "constant"){
     #generate param based on prior
-    gamma0 <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1))) 
+    gamma0 <- c(0,rnorm(K-1,mean = 4, sd = rep(1,K-1))) 
     #constant phi values
     phi <- exp(gamma0)
     
@@ -101,7 +163,7 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(1000,length(t)
     gamma_kt[1,] <- rep(0,length(t))
     #prior
     
-    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/200))
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/100))
     
     
     
@@ -147,41 +209,24 @@ generate.dataset <- function(N= 10000, K =3, t = c(1:5), ns = rep(1000,length(t)
   
 }
 
+dat <- modified.generate.dataset(t = 1:10)
+#dat$Y[3,2] <- 999
+dat$Y[3,10] <- 1000
 
 
-extract.unbiased.nona <- function(datalist,col = 1){
-  K = 1
-  Y <- datalist$Y[col,]
-  
-  smalln <- datalist$smalln[col,]
-  smalln <- smalln[!is.na(Y)]
-  
-  Y <- Y[!is.na(Y)]
-  T <- length(Y)
-  times <- 1:T
-  new.list <- list(K = K, 
-                   times = matrix(times,ncol = T), N = datalist$N, T = T,
-                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
-  
-  return(new.list)
-}
+chain1<- list(.RNG.name = "base::Wichmann-Hill", 
+              .RNG.seed = c(1))
+chain2<- list(.RNG.name = "base::Super-Duper", 
+              .RNG.seed = c(1+1))
+chain3<- list(.RNG.name = "base::Wichmann-Hill", 
+              .RNG.seed = c(1+2))
+chain4<- list(.RNG.name = "base::Super-Duper", 
+              .RNG.seed = c(1+4))
+
+chains.init <- list(chain1,chain2,chain3,chain4)
+
+const.const <- jags.parfit(cl,dat, c("positiverate","gamma0"), mod.walk.phi,
+                           n.chains = 4,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
 
 
-get.point.est <- function(line,var){
-  
-  point.est <- summary(line)$statistics[,1]
-  #variable of interest
-  return(point.est[grep(var,names(point.est))])
-}
-
-get.CI <- function(line,var){
-  
-  lower.quantile <- summary(line)$quantile[,1]
-  upper.quantile <- summary(line)$quantile[,5]
-  
-  #extract variable of interest
-  lower.quantile <- lower.quantile[grep(var,names(lower.quantile))] 
-  upper.quantile <- upper.quantile[grep(var,names(upper.quantile))] 
-  
-  return(list(Lower = lower.quantile,Upper = upper.quantile))
-}
+summary(const.const)$statistics[,1]
