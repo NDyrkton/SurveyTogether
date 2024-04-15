@@ -22,6 +22,61 @@ logit <- function(x){
 }
 
 
+get.point.est <- function(line,var,type = "median"){
+  
+  
+  point.est <- summary(line)$statistics
+  
+  #breaks if number of time points is 1, checking null fix.
+  
+  if(is.null(dim(point.est))){
+    
+    return(point.est[1])
+    
+  }else{
+    if(type == "mean"){
+      means <- summary(line)$statistics[,1]
+      return(means[grep(var,names(means))])
+      
+    }else if(type == "median"){
+      
+      medians <- summary(line)$quantiles[,3]
+      return(medians[grep(var,names(medians))])
+      
+      
+    }
+    
+  }
+  
+}
+
+get.CI <- function(line,var){
+  
+  quantiles <- summary(line)$quantile
+  
+  if(is.null(dim(quantiles))){
+    
+    lower.quantile <- quantiles[1]
+    upper.quantile <- quantiles[5]
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }else{
+    
+    lower.quantile <- summary(line)$quantile[,1]
+    upper.quantile <- summary(line)$quantile[,5]
+    
+    #extract variable of interest
+    lower.quantile <- lower.quantile[grep(var,names(lower.quantile))] 
+    upper.quantile <- upper.quantile[grep(var,names(upper.quantile))] 
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }
+  
+  
+}
+
 extract.surveys <- function(datalist,row = 1){
   #function extracts given surveys from data list
   #same as extract.nona but does not shorten
@@ -311,13 +366,14 @@ ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom
   geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw() + 
   labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
   geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linewidth = 1.20) + 
-  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"black"))    
+  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"black")) +   
+  scale_x_continuous(breaks = seq(1, 10, by = 1))  
 
 
 
   
 
-
+#total width reduction
 mean((CI.1$Upper-CI.1$Lower)/(CI.full$Upper-CI.full$Lower))
 
 #now-cast
