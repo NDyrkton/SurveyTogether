@@ -6,18 +6,18 @@ Scripts
 ----------------
 Includes the R scripts to reproduce the results.
 
-**proofofconcept.R**: includes the functions to generate the parameters, data , and the ability to fit the model using parallel cores.
+**proofofconcept.R**: includes the functions to generate the parameters, data , and the ability to fit the model using parallel cores (Section 2.2).
 
-**par_survey_together_<t>binom2.R**: are three independent scripts for the simulation study. This includes generating the data for that T = 5, 10, 15 time-points and functions to fit the data over the 2,000 repetitions. Saves the data including MCSE. (These simulations were run a Digital Alliance of Canada computing cluster)
+**par_survey_together_<t>binom2.R**: are three independent scripts for the simulation study. This includes generating the data for T = 5, 10, 15 time-points and functions to fit the data over the 2,000 repetitions. These scripts then save the data including with the corresponding MCSE. (These simulations were run a Digital Alliance of Canada computing cluster) (Simulation study Section 3)
 
 
-**extendeddata.R**: This script includes cleaning some of the data for the vaccination application, formatting it so that it may be used in the modeling and fitting the model according to different parameritizations of $\phi_{kt}$. The JAGS models for the models are found in JagsMod.R .
+**extendeddata.R**: This script includes cleaning some of the data for the vaccination application, formatting it so that it may be used in the modeling, and fitting the model according to different parameritizations of $\phi_{kt}$. The JAGS models for the models are found in JagsMod.R (Section 4).
 
-**NowCastperSurvey.R**: Is a repetition of the extended data but repeating the modeling 48 times to get the now-casting results. Includes calculating the $n_{iid}$ for the synthesis method.
+**NowCastperSurvey.R**: Is a repetition of the extended data, but the modeling is performed 48 times to get the now-casting results (Section 4.3). Includes calculating the $n_{iid}$ for the synthesis method.
 
-**prior_quantiles.R**: a script that reviews the interpretations and quantiles of the priors (methods section).
+**prior_quantiles.R**: a script that reviews the interpretations and quantiles of the priors (Section 2).
 
-**other scripts**: old scripts for creating some figures, exploring the identifiability of $\phi_{kt}$.
+**other scripts**: old scripts exploring the identifiability of $\phi_{kt}$.
 
 Some of the data in the list format can he found in the main folder. 
 
