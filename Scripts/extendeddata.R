@@ -7,7 +7,7 @@ library(ggtext)
 library(forecast)
 library(rjags)
 
-
+# fill in dates
 fill.dates <- function(ref.date, vec.date, vec){
   
   return.vec <- numeric(length(ref.date))
@@ -26,6 +26,7 @@ fill.dates <- function(ref.date, vec.date, vec){
   
 }
 
+#extract the unbiased survey from the data list
 extract.unbiased.nona <- function(datalist,col = 1){
   K = 1
   Y <- datalist$Y[col,]
@@ -44,7 +45,7 @@ extract.unbiased.nona <- function(datalist,col = 1){
 }
 
 
-
+# point estimate to extract from jags
 get.point.est <- function(line,var,type = "median"){
   
   
@@ -73,6 +74,7 @@ get.point.est <- function(line,var,type = "median"){
   
 }
 
+#collect the 95% CIs from the mcmc lines
 get.CI <- function(line,var){
   
   quantiles <- summary(line)$quantile
@@ -99,7 +101,7 @@ get.CI <- function(line,var){
   
   
 }
-
+#extract the individual surveys from the data list
 extract.surveys <- function(datalist,row = 1){
   #function extracts given surveys from data list
   #same as extract.nona but does not shorten
@@ -224,7 +226,7 @@ household.dat <- extract.unbiased.nona(data.list.extended,col= 2)
 facebook.dat <- extract.unbiased.nona(data.list.extended,col = 3)
 
 
-cl <- makePSOCKcluster(4)
+cl <- makePSOCKcluster(6)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -238,32 +240,41 @@ chain3<- list(.RNG.name = "base::Wichmann-Hill",
               .RNG.seed = c(371))
 chain4<- list(.RNG.name = "base::Super-Duper", 
               .RNG.seed = c(482))
+chain5<- list(.RNG.name = "base::Wichmann-Hill", 
+              .RNG.seed = c(334))
+chain6<- list(.RNG.name = "base::Super-Duper", 
+              .RNG.seed = c(569))
+
+list.chains = list(chain1,chain2,chain3,chain4,chain5,chain6)
+
 
 
 #now run linear phi for each of the unbiased surveys
 line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                          n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                          n.chains=6,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
 
 #check convergence
 gelman.diag(line.ipsos)
 
+#get point estimates and CIs
 point.ipsos <- get.point.est(line.ipsos,"positiverate",type = "median")
 CI.ipsos <- get.CI(line.ipsos,"positiverate")
 
 
 line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                              n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                              n.chains=6,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
 
 gelman.diag(line.household)
 
+#point estimate and CIs
 point.household <- get.point.est(line.household,"positiverate",type = "median")
 CI.household <- get.CI(line.household,"positiverate")
 
 
 line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                             n.chains=4,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                             n.chains=6,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
 
-
+#point estimates and CIs
 gelman.diag(line.facebook)
 point.facebook <- get.point.est(line.facebook,"positiverate",type = "median")
 CI.facebook <-  get.CI(line.facebook,"positiverate")
@@ -273,14 +284,14 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 #run method for three types of models for phi
 
 line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
-                          n.chains=4,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                          n.chains=6,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
 
 line.linear <- jags.parfit(cl, data.list.extended, c("positiverate","sigmasq","phi"), custommodel(mod.linear.phi),
-                         n.chains=4,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                         n.chains=6,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
 
 
 line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.phi),
-                         n.chains=4,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list(chain1,chain2,chain3,chain4))
+                         n.chains=6,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
 
 
 #constant model does not converge
@@ -423,6 +434,6 @@ ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = Surve
 
 
 #summary(line.walk)
-
+stopCluster(cl)
 
 
