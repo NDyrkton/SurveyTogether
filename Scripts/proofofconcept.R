@@ -21,6 +21,81 @@ logit <- function(x){
   log(x/(1-x))
 }
 
+
+get.point.est <- function(line,var,type = "median"){
+  
+  
+  point.est <- summary(line)$statistics
+  
+  #breaks if number of time points is 1, checking null fix.
+  
+  if(is.null(dim(point.est))){
+    
+    return(point.est[1])
+    
+  }else{
+    if(type == "mean"){
+      means <- summary(line)$statistics[,1]
+      return(means[grep(var,names(means))])
+      
+    }else if(type == "median"){
+      
+      medians <- summary(line)$quantiles[,3]
+      return(medians[grep(var,names(medians))])
+      
+      
+    }
+    
+  }
+  
+}
+
+get.CI <- function(line,var){
+  
+  quantiles <- summary(line)$quantile
+  
+  if(is.null(dim(quantiles))){
+    
+    lower.quantile <- quantiles[1]
+    upper.quantile <- quantiles[5]
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }else{
+    
+    lower.quantile <- summary(line)$quantile[,1]
+    upper.quantile <- summary(line)$quantile[,5]
+    
+    #extract variable of interest
+    lower.quantile <- lower.quantile[grep(var,names(lower.quantile))] 
+    upper.quantile <- upper.quantile[grep(var,names(upper.quantile))] 
+    
+    return(list(Lower = lower.quantile,Upper = upper.quantile))
+    
+  }
+  
+  
+}
+
+extract.surveys <- function(datalist,row = 1){
+  #function extracts given surveys from data list
+  #same as extract.nona but does not shorten
+  
+  K <-  length(row)
+  Y <- datalist$Y[row,]
+  
+  smalln <- datalist$smalln[row,]
+  times <- datalist$times[row,]
+  T <- datalist$T
+  
+  new.list <- list(K = K, 
+                   times = matrix(times,ncol = T), N = datalist$N, T = T,
+                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+  return(new.list)
+  
+}
+
+
 #now fixed to be consistent with notation in paper.
 generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
   Y <- matrix(NA,ncol = length(t),nrow = K)
@@ -186,11 +261,11 @@ for (k in 2:K){
 }
 	
 	
-logitpositiverate[1] ~ dnorm(theta0,1/sigmasq)
-positiverate[1]	<- ilogit(logitpositiverate[1])
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
 for(t in 2:T){
-	logitpositiverate[t] ~ dnorm(logitpositiverate[t-1], 1/sigmasq)
-	positiverate[t]	<- ilogit(logitpositiverate[t])
+	theta[t] ~ dnorm(theta[t-1], 1/sigmasq)
+	positiverate[t]	<- ilogit(theta[t])
 }
 
 for(t in 1:T){
@@ -259,7 +334,7 @@ line.3 <- jags.parfit(cl, K_3, c("positiverate"), custommodel(mod.linear.phi),
                       n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 
-line.full <- jags.parfit(cl, data, c("positiverate"), custommodel(mod.linear.phi),
+line.full <- jags.parfit(cl, data, c("positiverate","gamma0",'gamma1'), custommodel(mod.linear.phi),
                       n.chains=4,n.adapt = 200000,thin = 5, n.iter = 100000
                       ,inits = inits.chains)
 
@@ -291,13 +366,14 @@ ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom
   geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw() + 
   labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
   geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linewidth = 1.20) + 
-  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"black"))    
+  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"black")) +   
+  scale_x_continuous(breaks = seq(1, 10, by = 1))  
 
 
 
   
 
-
+#total width reduction
 mean((CI.1$Upper-CI.1$Lower)/(CI.full$Upper-CI.full$Lower))
 
 #now-cast

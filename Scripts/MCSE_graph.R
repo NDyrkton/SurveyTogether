@@ -1,5 +1,7 @@
 #View(results.plot.final)
 
+#this file includes code to calculate the MCSE for the simulation study, if it was not done in the par_survey_togther_<tx>_binom2.R
+
 
 MSE <- apply(results.plot.final[[1]],2,function(x){mean(x^2)})
 

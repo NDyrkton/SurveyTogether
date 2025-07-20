@@ -197,7 +197,7 @@ for(t in 2:T){
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
 	}
 }
 
@@ -245,14 +245,13 @@ for (k in 1:K){
 }
 
 #priors
-theta0 ~ dnorm(0, 2);
-sigmasq ~ dnorm(0, 1)T(0,);
+theta0 ~ dnorm(1, 1/0.01);
+sigmasq ~ dnorm(0.662, 1/0.01)T(0,);
 
-for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-}
+gamma0[2] ~ dnorm(-0.16,1/0.01)
+gamma0[3] ~ dnorm(2.28,1/0.01)
+
 }')
-
 
 mod.linear.phi <- custommodel('
 model{	
@@ -279,7 +278,7 @@ for(t in 2:T){
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
 	}
 }
 
@@ -326,7 +325,7 @@ for(t in 2:T){
 for (k in 1:K){
 	for (t in 1:T){
 		
-		Y[k,t] ~ dbin(1-(1-(positiverate[t]))^phi[k,t],smalln[k,t])
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
 	}
 }
 
@@ -596,24 +595,15 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 500, ti =
 }
 
 #run the simulation
-results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = 100,ti = 10)
+results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = NN,ti = 10)
 
 #end parallel
 stopCluster(cl)
 
-write.csv(results.plot.final,"CheckCIT10N1000.csv",row.names = F)
+#write.csv(results.plot.final,"CheckCIT10N1000.csv",row.names = F)
 
-models <- results.plot.final[1:100,]
-unbiased <- results.plot.final[101:200,]
+models <- results.plot.final[1:NN,]
+unbiased <- results.plot.final[(NN+1):(2*NN),]
 apply(models*100,2,mean)
 apply(unbiased*100,2,mean)
-
-
-
-data.test <- extract.unbiased(data.const[[1]])
-
-
-jags.test <- jags.parfit(cl, data.test, c("positiverate",'gamma0','sigmasq'), mod.const.phi,
-                          n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000)
-
 
