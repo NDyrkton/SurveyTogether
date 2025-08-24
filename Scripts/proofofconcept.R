@@ -1,6 +1,6 @@
 
-#Survey Together Simulation Study
-#3x3 Design         Nathaniel Dyrkton  Supervised by Paul Gustafson and Harlan Campbell
+#Survey Together Proof of concept
+# Nathaniel Dyrkton  Supervised by Paul Gustafson and Harlan Campbell
 library(MCMCpack)
 library(rjags)
 library(truncnorm)
@@ -290,8 +290,8 @@ for (k in 1:K){
 }')
 
 
-
-cl <- makePSOCKcluster(4)
+n.chains <- 8
+cl <- makePSOCKcluster(n.chains)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -325,17 +325,17 @@ chain4<- list(.RNG.name = "base::Super-Duper",
 inits.chains <- list(chain1,chain2,chain3,chain4)
 
 line.1 <- jags.parfit(cl, K_1, c("positiverate"), custommodel(mod.linear.phi),
-                      n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000
+                      n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 line.2 <- jags.parfit(cl, K_2, c("positiverate"), custommodel(mod.linear.phi),
-                      n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000
+                      n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 line.3 <- jags.parfit(cl, K_3, c("positiverate"), custommodel(mod.linear.phi),
-                      n.chains=4,n.adapt = 50000,thin = 5, n.iter = 50000
+                      n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 
 line.full <- jags.parfit(cl, data, c("positiverate","gamma0",'gamma1'), custommodel(mod.linear.phi),
-                      n.chains=4,n.adapt = 200000,thin = 5, n.iter = 100000
+                      n.chains=n.chains,n.adapt = 200000,thin = 5, n.iter = 100000
                       ,inits = inits.chains)
 
 posrate.1 <- get.point.est(line.1,'positiverate')
@@ -362,7 +362,7 @@ frame <- data.frame(Survey = c(rep("Survey 1",10),rep("Survey 2",10),rep("Survey
 frame.posrate <-  data.frame(time = c(1:10),posrate = data$params[grep("posrate",names(data$params))])
 
 library(RColorBrewer)
-ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line(linewidth= 0.75) + 
+proofOfConceptPlots <- ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line(linewidth= 0.75) + 
   geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw() + 
   labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
   geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linewidth = 1.20) + 

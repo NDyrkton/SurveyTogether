@@ -6,6 +6,7 @@ library(lemon)
 library(ggtext)
 library(forecast)
 library(rjags)
+library(ggmcmc)
 
 # fill in dates
 fill.dates <- function(ref.date, vec.date, vec){
@@ -123,7 +124,7 @@ extract.surveys <- function(datalist,row = 1){
 
 
 
-source("Scripts/JagsMods.R")
+source("Functions/jagsMods.R")
 #source("Scripts/helperfunctions.R")
 
 
@@ -210,12 +211,7 @@ data.list.extended <- list(K = 3, T = 48, N = 255200373,Y = Y, times =times, sma
 
 
 
-#saveRDS(data.list.extended,"data.list.extended.Rdata")
 
-
-#run starting here with pre-cals
-
-#data.list.extended <- data.list
 
 
 #START with full data
@@ -225,8 +221,9 @@ ipsos.dat <- extract.unbiased.nona(data.list.extended,col = 1)
 household.dat <- extract.unbiased.nona(data.list.extended,col= 2)
 facebook.dat <- extract.unbiased.nona(data.list.extended,col = 3)
 
+n.chains <- 8
 
-cl <- makePSOCKcluster(6)
+cl <- makePSOCKcluster(n.chains)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -244,14 +241,19 @@ chain5<- list(.RNG.name = "base::Wichmann-Hill",
               .RNG.seed = c(334))
 chain6<- list(.RNG.name = "base::Super-Duper", 
               .RNG.seed = c(569))
+chain7<- list(.RNG.name = "base::Wichmann-Hill", 
+              .RNG.seed = c(334))
+chain8<- list(.RNG.name = "base::Super-Duper", 
+              .RNG.seed = c(569))
 
-list.chains = list(chain1,chain2,chain3,chain4,chain5,chain6)
+
+list.chains = list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
 
 
 
 #now run linear phi for each of the unbiased surveys
 line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                          n.chains=6,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
+                          n.chains= n.chains ,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
 
 #check convergence
 gelman.diag(line.ipsos)
@@ -262,7 +264,7 @@ CI.ipsos <- get.CI(line.ipsos,"positiverate")
 
 
 line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                              n.chains=6,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
+                              n.chains=n.chains ,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
 
 gelman.diag(line.household)
 
@@ -272,7 +274,7 @@ CI.household <- get.CI(line.household,"positiverate")
 
 
 line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                             n.chains=6,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
+                             n.chains=n.chains ,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
 
 #point estimates and CIs
 gelman.diag(line.facebook)
@@ -284,14 +286,14 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 #run method for three types of models for phi
 
 line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
-                          n.chains=6,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
+                          n.chains=n.chains ,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
 
 line.linear <- jags.parfit(cl, data.list.extended, c("positiverate","sigmasq","phi"), custommodel(mod.linear.phi),
-                         n.chains=6,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
+                         n.chains=n.chains ,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
 
 
-line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq"), custommodel(mod.walk.phi),
-                         n.chains=6,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
+line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq","pisq"), custommodel(mod.walk.phi),
+                         n.chains= n.chains ,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
 
 
 #constant model does not converge
@@ -339,52 +341,12 @@ cdc_df$vax_lb2 <- cdc_df$vax*0.95
 cdc_df$vax_ub2 <- cdc_df$vax*1.05
 
 
-#data frame to compare positiverate estimates
-compare.method <- data.frame(Method = c(rep("const",48),rep("linear",48),rep("walk",48)), ests = c(point.const,point.linear,point.walk),
-                             CI.L=c(CI.const$Lower,CI.linear$Lower,CI.walk$Lower),CI.U=c(CI.const$Upper,CI.linear$Upper,CI.walk$Upper),dates = ref.dates)
-
-
-#Figure.
-ggplot(data = compare.method,aes(x=dates,y = ests,color = Method)) + geom_point() + 
-  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0) + theme_bw() + labs(x = NULL,y = "% of the population with at least one vaccine",title = expression(paste("Posterior estimates of % vaccinated by model for ",phi)))+
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 
 #prefered method (random walk model for phi) to be plotted against all single survey estimates
 method_df <- data.frame(ymd = ref.dates, est = point.walk, CI_L = CI.walk$Lower, CI_U=CI.walk$Upper)
 
 
-
-#Main plot to compare (inference plot)
-fb_df %>% ggplot(aes(x = ymd, y = est)) + 
-  geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
-  geom_pointline(aes(x = ymd, y = est),color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df,aes(x=ymd, y = est), color = "#cf7a30") + 
-  geom_errorbar(data = ax_df, aes(ymin = CI_L, ymax = CI_U), color = "#cf7a30", width = 0) + 
-  geom_pointline(data = chp_df,aes(x = ymd, y = est), color = "#69913b")  + geom_errorbar(data = chp_df, aes(ymin = CI_L, ymax = CI_U), color = "#69913b", width = 0) +
-  geom_pointline(data = method_df,aes(x = ymd, y = est),color = "magenta") + geom_errorbar(data = method_df,aes(ymin = CI_L,ymax = CI_U),color = 'magenta',width = 0)+
-  scale_x_date(date_labels = "%b '%y", breaks = "1 month") + 
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + 
-  theme_bw() + labs(x = NULL, y = "% of US Adults with 1+ dose Vaccination",title = "Synthesis method in comparison to single survey estimates") + 
-  annotate("text", x = as.Date("2021-10-20"), y = 0.68, size = 3, label = "Axios-Ipsos", color = "#cf7a30") + 
-  annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 3, label = "Method", color = "magenta")+
-  annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
-  annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
-  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)
-
-
-#calculate gain here:
-gain <- (CI.ipsos$Upper-CI.ipsos$Lower)/(CI.walk$Upper[!is.na(data.list.extended$Y[1,])]-CI.walk$Lower[!is.na(data.list.extended$Y[1,])])
-
-mean(gain)*100 #154.1535
-median(gain)*100 #142.3487
-
-
-gain.barplot <- data.frame(date = fb_df$ymd[!is.na(data.list.extended$Y[1,])], ratio = gain) 
-
-ggplot(gain.barplot,aes(x = date,y =gain))+ geom_bar(stat = 'identity')+   scale_x_date(date_labels = "%b '%y", breaks = "1 month")+
-  theme_bw() + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of 95% Credible Interval of Axios-Ipsos compared to the synthesis method") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) +
-  annotate("text", x = as.Date("2021-10-5"), y = 1.65, size = 3, label = "Mean", color = "blue") + 
-  annotate("text", x = as.Date("2021-10-25"), y = 1.35, size = 3, label = "Median", color = "red")
 
 
 #collect estimates for phis by model
@@ -402,8 +364,8 @@ CI.linear.phi.2 <- lapply(CI.linear.phi,function(x){x[seq(2,(48*3)-1,by = 3)]})
 CI.linear.phi.3 <- lapply(CI.linear.phi,function(x){x[seq(3,(48*3),by = 3)]})
 
 
-point.const <- get.point.est(line.const,"gamma0")
-CI.const <- get.CI(line.const,"gamma0")
+point.const.gamma <- get.point.est(line.const,"gamma0")
+CI.const.gamma <- get.CI(line.const,"gamma0")
 
 point.gamma <- get.point.est(line.walk,"gamma")
 gamma.CI <- get.CI(line.walk,"gamma")
@@ -422,18 +384,119 @@ CI.U_gamma3 <- gamma.CI$Upper[-seq(1,96,by = 2)]
 #concatenate into one large dataset
 phi.dat <- data.frame(Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48),rep("Household-Pulse",48),rep("Delphi-Facebook",48)),
                       Method = c(rep("const",48),rep("const",48),rep("linear",48),rep("linear",48),rep("walk",48),rep("walk",48)),
-                      phi = c(exp(rep(point.const[1],48)),exp(rep(point.const[2],48)),linear.phi.2,linear.phi.3,exp(point.gamma2),exp(point.gamma3)),
-                      CI.L=c(exp(rep(CI.const$Lower[1],48)),exp(rep(CI.const$Lower[2],48)),CI.linear.phi.2$Lower,CI.linear.phi.3$Lower,exp(CI.L_gamma2),exp(CI.L_gamma3)),
-                      CI.U =c(exp(rep(CI.const$Upper[1],48)),exp(rep(CI.const$Upper[2],48)),CI.linear.phi.2$Upper,CI.linear.phi.3$Upper,exp(CI.U_gamma2),exp(CI.U_gamma3)),
+                      phi = c(exp(rep(point.const.gamma[1],48)),exp(rep(point.const.gamma[2],48)),linear.phi.2,linear.phi.3,exp(point.gamma2),exp(point.gamma3)),
+                      CI.L=c(exp(rep(CI.const.gamma$Lower[1],48)),exp(rep(CI.const.gamma$Lower[2],48)),CI.linear.phi.2$Lower,CI.linear.phi.3$Lower,exp(CI.L_gamma2),exp(CI.L_gamma3)),
+                      CI.U =c(exp(rep(CI.const.gamma$Upper[1],48)),exp(rep(CI.const.gamma$Upper[2],48)),CI.linear.phi.2$Upper,CI.linear.phi.3$Upper,exp(CI.U_gamma2),exp(CI.U_gamma3)),
                       t= c(ref.dates,ref.dates,ref.dates,ref.dates,ref.dates,ref.dates))
+
+#Figures #
+Figure3 <- fb_df %>% ggplot(aes(x = ymd, y = est)) + 
+  geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
+  geom_pointline(aes(x = ymd, y = est),color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df,aes(x=ymd, y = est), color = "#cf7a30") + 
+  geom_errorbar(data = ax_df, aes(ymin = CI_L, ymax = CI_U), color = "#cf7a30", width = 0) + 
+  geom_pointline(data = chp_df,aes(x = ymd, y = est), color = "#69913b")  + geom_errorbar(data = chp_df, aes(ymin = CI_L, ymax = CI_U), color = "#69913b", width = 0) +
+  geom_pointline(data = method_df,aes(x = ymd, y = est),color = "magenta") + geom_errorbar(data = method_df,aes(ymin = CI_L,ymax = CI_U),color = 'magenta',width = 0)+
+  scale_x_date(date_labels = "%b '%y", breaks = "1 month") + 
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + 
+  theme_bw() + labs(x = NULL, y = "% of US Adults with 1+ dose Vaccination",title = "Synthesis method in comparison to single survey estimates") + 
+  annotate("text", x = as.Date("2021-10-20"), y = 0.68, size = 3, label = "Axios-Ipsos", color = "#cf7a30") + 
+  annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 3, label = "Method", color = "magenta")+
+  annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
+  annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
+  annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)
+
+
+
+#data frame to compare positiverate estimates
+compare.method <- data.frame(Method = c(rep("const",48),rep("linear",48),rep("walk",48)), ests = c(point.const,point.linear,point.walk),
+                             CI.L=c(CI.const$Lower,CI.linear$Lower,CI.walk$Lower),CI.U=c(CI.const$Upper,CI.linear$Upper,CI.walk$Upper),dates = ref.dates)
+
+
+#Figure 5a
+Figure5a <- ggplot(data = compare.method,aes(x=dates,y = ests,color = Method)) + geom_point() + 
+  geom_line() + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0) + theme_bw() + labs(x = NULL,y = "% of the population with at least one vaccine",title = expression(paste("Posterior estimates of % vaccinated by model for ",phi)))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), breaks = seq(0, 0.90, by = 0.1), expand = expansion(mult = c(0, 0.05))) + scale_x_date(date_labels = "%b '%y", breaks = "1 month")
+
 
 
 #plot of comparison of phi estimates over time by method.
-ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = Survey)) + geom_point()+ 
+Figure5b <- ggplot(data = phi.dat,aes(x = as.Date(t), y = phi, color = Method, shape = Survey)) + geom_point()+ 
   geom_line() + facet_grid(Survey~.)+ geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha =0.25) + theme_bw() +labs(y = expression(phi[kt]), x = NULL,title = expression(paste(phi[kt]," by method and survey")))  +scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
+
+
+
+#calculate gain here:
+gain <- (CI.ipsos$Upper-CI.ipsos$Lower)/(CI.walk$Upper[!is.na(data.list.extended$Y[1,])]-CI.walk$Lower[!is.na(data.list.extended$Y[1,])])
+
+mean(gain)*100 #154.1535
+median(gain)*100 #142.3487
+
+
+gain.barplot <- data.frame(date = fb_df$ymd[!is.na(data.list.extended$Y[1,])], ratio = gain) 
+
+Figure8 <- ggplot(gain.barplot,aes(x = date,y =gain))+ geom_bar(stat = 'identity')+   scale_x_date(date_labels = "%b '%y", breaks = "1 month")+
+  theme_bw() + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of 95% Credible Interval of Axios-Ipsos compared to the synthesis method") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) +
+  annotate("text", x = as.Date("2021-10-5"), y = 1.65, size = 3, label = "Mean", color = "blue") + 
+  annotate("text", x = as.Date("2021-10-25"), y = 1.35, size = 3, label = "Median", color = "red")
+
+
+
+#save all files
+ggsave("Figures/Figure3.png",plot = Figure3, width = 24,height = 16,unit = "cm")
+ggsave("Figures/Figure5a.png",plot = Figure5a, width = 18,height = 12,unit = "cm")
+ggsave("Figures/Figure5b.png",plot = Figure5b, width = 28,height = 12,unit = "cm")
+ggsave("Figures/Figure8.png",plot = Figure8, width = 24,height = 16,unit = "cm")
 
 
 #summary(line.walk)
 stopCluster(cl)
+
+
+#create MCMC plots
+mcmc.list <- ggs(line.walk)
+#shrink the number of iterations to 10,000 so that it is easier to read
+
+#max iteration is 100,000 given thinning interval of 5
+mcmc.list.tail <- mcmc.list %>% filter(Iteration > 90000)
+
+parameters <- unique(mcmc.list$Parameter)
+#generate positiverate parameters
+
+positiverates <- parameters[grep("positiverate",parameters)]
+gamma2 <- parameters[grep("gamma",parameters)][1:48] #gamma2 is census household-pulse
+gamma3 <- parameters[grep("gamma",parameters)][49:96] #gamma2 is census household-pulse
+
+
+### create trace-plots for each parameter set, breaking it up into 24x2 intervals
+traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 1-24 (Inference)")
+
+traceplot_positiverate_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(positiverates[25:48]),"sigmasq"))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 25-48 and sigmasq (Inference)")
+
+traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 1-24 (Inference)")
+
+traceplot_gamma2_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[1:24])) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Inference)")
+
+traceplot_gamma2_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[25:48])) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Inference)")
+
+traceplot_gamma3_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma3[1:24])) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Delphi-Facebook) time-points 1-24 (Inference)")
+
+traceplot_gamma3_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(gamma3[25:48]),"pisq"))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Delphi-Facebook) and pisq time-points 1-24 (Inference)")
+
+#save all plots
+
+ggsave("Figures/traceplot_posrate_1_24.png",plot = traceplot_positiverate_1_24,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_posrate_25_48.png",plot = traceplot_positiverate_25_48,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma2_1_24.png",plot = traceplot_gamma2_1_24,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma2_25_48.png",plot = traceplot_gamma2_25_48,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma3_1_24.png",plot = traceplot_gamma3_1_24,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma3_25_48.png",plot = traceplot_gamma3_25_48,width = 48,height = 40, unit = "cm",bg = "white")
+
 
 

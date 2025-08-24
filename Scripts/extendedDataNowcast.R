@@ -8,10 +8,11 @@ library(dplyr)
 library(lemon)
 library(ggtext)
 library(forecast)
+library(ggmcmc)
 
 
 
-source("Scripts/JagsMods.R")
+source("Scripts/jagsMods.R")
 #source("Scripts/helperfunctions.R")
 
 #import data
@@ -174,17 +175,24 @@ data.list.fb <- extract.surveys(data.list,c(1,3))
 data.list.hp <- extract.surveys(data.list,c(1,2))
 
 
-#start for-loop for all now-cast estimates.
+n.chains <- 8
 
-
-cl <- makePSOCKcluster(10)
+cl <- makePSOCKcluster(n.chains)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
 parLoadModule(cl,"lecuyer")
 
+gelman.diag.list <- vector("list",48)
+traceplot.list <- vector("list",48)
+
 dcoptions("verbose"=F)#mute the output of dclone
 for(t in 1:fb.len){
+  
+  #strings for parameter extraction
+  posrate.t <- paste0("positiverate[",t,"]")
+  gamma2.t <- paste0("gamma[2,",t,"]")
+  gamma3.t <- paste0("gamma[3,",t,"]")
   print(t)
   
   #initialize seet for all chains
@@ -205,12 +213,8 @@ for(t in 1:fb.len){
                 .RNG.seed = c(371+8*t))
   chain8<- list(.RNG.name = "base::Super-Duper", 
                 .RNG.seed = c(482+9*t))
-  chain9<- list(.RNG.name = "base::Wichmann-Hill", 
-                .RNG.seed = c(351+10*t))
-  chain10<- list(.RNG.name = "base::Super-Duper", 
-                .RNG.seed = c(132+11*t))  
   
-  inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8,chain9,chain10)
+  inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
   
 
   #data.t is the data for all surveys up to time t
@@ -227,19 +231,19 @@ for(t in 1:fb.len){
     #data unique to ipsos
     ipsos.t <- extract.t(ipsos.dat,t)
 
-    line.ipsos <- jags.parfit(cl,ipsos.t, c("positiverate"), custommodel(mod.linear.phi),
-                              n.chains=10,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
+    line.ipsos <- jags.parfit(cl,ipsos.t, c(posrate.t), custommodel(mod.linear.phi),
+                              n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 250000,inits = inits.chains)
     
     #get point estimate.
-    ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")[t]
+    ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")
     
     #gelman.diag(line.ipsos)
 
   
     #get interval estimates
     ipsos.CIs <- get.CI(line.ipsos,"positiverate")
-    ipsos.CI$CI.U[t] <- ipsos.CIs$Upper[t]
-    ipsos.CI$CI.L[t] <- ipsos.CIs$Lower[t]
+    ipsos.CI$CI.U[t] <- ipsos.CIs$Upper
+    ipsos.CI$CI.L[t] <- ipsos.CIs$Lower
 
 
 
@@ -249,15 +253,15 @@ for(t in 1:fb.len){
   if(t %in% c(1:household.len)){
     household.t <- extract.t(household.dat,t)
 
-    line.household <- jags.parfit(cl,household.t, c("positiverate"), custommodel(mod.linear.phi),
-                                  n.chains=10,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
+    line.household <- jags.parfit(cl,household.t, posrate.t, custommodel(mod.linear.phi),
+                                  n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 250000,inits = inits.chains)
 
-    household.posrates[t] <- get.point.est(line.household,"positiverate")[t]
+    household.posrates[t] <- get.point.est(line.household,"positiverate")
     household.CIs <- get.CI(line.household,"positiverate")
 
 
-    household.CI$CI.U[t] <- household.CIs$Upper[t]
-    household.CI$CI.L[t] <- household.CIs$Lower[t]
+    household.CI$CI.U[t] <- household.CIs$Upper
+    household.CI$CI.L[t] <- household.CIs$Lower
 
   }
 
@@ -265,33 +269,41 @@ for(t in 1:fb.len){
 ###facebook and full###
 
   facebook.t <- extract.t(facebook.dat,t)
-  line.facebook <- jags.parfit(cl, facebook.t, c("positiverate"), custommodel(mod.linear.phi),
-                             n.chains=10,n.adapt = 50000,thin = 5, n.iter = 100000,inits = inits.chains)
+  line.facebook <- jags.parfit(cl, facebook.t, c(posrate.t), custommodel(mod.linear.phi),
+                             n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 250000,inits = inits.chains)
 
-  facebook.posrates[t] <- get.point.est(line.facebook,"positiverate")[t]
+  facebook.posrates[t] <- get.point.est(line.facebook,"positiverate")
 
   facebook.CIs <- get.CI(line.facebook,"positiverate")
 
 
-  facebook.CI$CI.U[t] <- facebook.CIs$Upper[t]
-  facebook.CI$CI.L[t] <- facebook.CIs$Lower[t]
+  facebook.CI$CI.U[t] <- facebook.CIs$Upper
+  facebook.CI$CI.L[t] <- facebook.CIs$Lower
 
   
   
   
   #run models for all surveys (random walk)
-  line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                           n.chains=10,n.adapt = 400000,thin = 5, n.iter = 400000
+  line.full <- jags.parfit(cl, data.t, c(posrate.t,"sigmasq",gamma2.t,gamma3.t,"pisq"), custommodel(mod.walk.phi),
+                           n.chains=n.chains,n.adapt = 300000,thin = 5, n.iter = 500000
                            ,inits = inits.chains)
-  line.fb.axios <- jags.parfit(cl, data.list.fb.t, c("positiverate"), custommodel(mod.walk.phi),
-                               n.chains=10,n.adapt = 200000,thin = 5, n.iter = 400000
+  line.fb.axios <- jags.parfit(cl, data.list.fb.t, c(posrate.t), custommodel(mod.walk.phi),
+                               n.chains=n.chains,n.adapt = 200000,thin = 5, n.iter = 500000
                                ,inits = inits.chains)
-  line.hp.axios <- jags.parfit(cl, data.list.hp.t, c("positiverate"), custommodel(mod.walk.phi),
-                               n.chains=10,n.adapt = 200000,thin = 5, n.iter = 400000
+  line.hp.axios <- jags.parfit(cl, data.list.hp.t, c(posrate.t), custommodel(mod.walk.phi),
+                               n.chains=n.chains,n.adapt = 200000,thin = 5, n.iter = 500000
                                ,inits = inits.chains)
   
+  
+  gelman.diagnostics <- gelman.diag(line.full)
+  #append to list for  savings
+  
+  gelman.diag.list[[t]] <- gelman.diagnostics
+  
+  
+  
   #check for any lack of convergence (in current run, no convergence issues detected)
-  if(any(gelman.diag(line.full)$psrf[,1] >= 1.1)){
+  if(any(gelman.diagnostics$psrf[,1] >= 1.1)){
     
     
     print("failed")
@@ -299,32 +311,32 @@ for(t in 1:fb.len){
     print(gelman.diag(line.full))
     
 
-    line.full <- jags.parfit(cl, data.t, c("positiverate","sigmasq","gamma","pisq"), custommodel(mod.walk.phi),
-                             n.chains=10,n.adapt = 500000,thin = 5, n.iter = 700000,inits = inits.chains)
+    line.full <- jags.parfit(cl, data.t, c(posrate.t,"sigmasq",gamma2.t,gamma3.t,"pisq"), custommodel(mod.walk.phi),
+                             n.chains=n.chains,n.adapt = 500000,thin = 5, n.iter = 700000,inits = inits.chains)
 
     print(gelman.diag(line.full))
 
   }
 
-  full.posrates[t] <- get.point.est(line.full,"positiverate")[t]
+  full.posrates[t] <- get.point.est(line.full,"positiverate")
 
   full.CIs <- get.CI(line.full,"positiverate")
-  full.CI$CI.U[t] <- full.CIs$Upper[t]
-  full.CI$CI.L[t] <- full.CIs$Lower[t]
+  full.CI$CI.U[t] <- full.CIs$Upper
+  full.CI$CI.L[t] <- full.CIs$Lower
 
   
   #for added fb, and added hp
-  full.fb.posrates[t] <- get.point.est(line.fb.axios,"positiverate")[t]
+  full.fb.posrates[t] <- get.point.est(line.fb.axios,"positiverate")
   full.fb.CIs <- get.CI(line.fb.axios, "positiverate")
-  full.fb.CI$CI.L[t] <- full.fb.CIs$Lower[t]
-  full.fb.CI$CI.U[t] <- full.fb.CIs$Upper[t]
+  full.fb.CI$CI.L[t] <- full.fb.CIs$Lower
+  full.fb.CI$CI.U[t] <- full.fb.CIs$Upper
   
   
   #axios + hp
-  full.hp.posrates[t] <- get.point.est(line.hp.axios,"positiverate")[t]
+  full.hp.posrates[t] <- get.point.est(line.hp.axios,"positiverate")
   full.hp.CIs <- get.CI(line.hp.axios,"positiverate")
-  full.hp.CI$CI.L[t] <- full.hp.CIs$Lower[t]
-  full.hp.CI$CI.U[t] <- full.hp.CIs$Upper[t]
+  full.hp.CI$CI.L[t] <- full.hp.CIs$Lower
+  full.hp.CI$CI.U[t] <- full.hp.CIs$Upper
   
   
   
@@ -336,13 +348,13 @@ for(t in 1:fb.len){
   sigmasq.CI$CI.U[t] <- sigmasq.CIs$Upper
 
   #phi ests
-  phi.all <- tail(exp( get.point.est(line.full,'gamma')),2)
+  phi.all <- exp( get.point.est(line.full,'gamma'))
   phi.household[t] <- phi.all[1]
   phi.facebook[t] <- phi.all[2]
 
 
 
-  phi.CIs <- lapply(get.CI(line.full,'gamma'),function(x){tail(exp(x),2)})
+  phi.CIs <- lapply(get.CI(line.full,'gamma'),function(x){exp(x)})
 
   phi.household.CI$CI.L[t] <- phi.CIs$Lower[1]
   phi.household.CI$CI.U[t] <- phi.CIs$Upper[1]
@@ -357,8 +369,39 @@ for(t in 1:fb.len){
   pisq.CI$CI.L[t] <- pisq.CIs$Lower
   pisq.CI$CI.U[t] <- pisq.CIs$Upper
 
+  
+  #lastly get the trace-plots of last 10,000 iterations for all parameters.
+  
+  #create MCMC plots
+  mcmc.list <- ggs(line.full)
+  #shrink the number of iterations to 10,000 so that it is easier to read
+  
+  #max iteration is 100,000 given thinning interval of 5
+  mcmc.list.tail <- mcmc.list %>% filter(Iteration > 90000)
+  
+  #save in list to plot
+  
+  traceplot.list[[t]] <- mcmc.list.tail
+  
 
 }
+
+###
+
+
+stopCluster(cl)
+
+
+
+
+
+
+
+
+
+
+
+
 
 fb_df <- read.csv("Data/fb.csv")
 cdc_df <- read.csv("Data/cdc.csv")
@@ -410,7 +453,7 @@ method_df <- data.frame(ymd = ref.dates, point.est = full.posrates, CI.L = full.
 
 
 
-fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0,color = "#4891dc")+
+nowcastPlotFigure7 <- fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0,color = "#4891dc")+
   geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
   geom_pointline(color = "#4891dc") + geom_pointline(data = ax_df,aes(x = ymd, y = point.est), color = "#cf7a30") + 
   geom_errorbar(data = ax_df, aes(ymin = CI.L, ymax = CI.U), color = "#cf7a30", width = 0) + 
@@ -425,9 +468,8 @@ fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ym
   annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
   annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)  + ggtitle("Now-cast performance of the synthesis method")
 
-#code from 
+#Plot code from 
 #Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.
-
 
 
 
@@ -436,15 +478,28 @@ phi.df <- data.frame(ymd = c(ref.dates,ref.dates), Survey = c(rep("Household-Pul
                      point.est = c(phi.household,phi.facebook),CI.L = c(phi.household.CI$CI.L,phi.facebook.CI$CI.L), CI.U = c(phi.household.CI$CI.U,phi.facebook.CI$CI.U))
 
 
-ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
+sigmasqFigure8 <- ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
   theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",sigma^2)),title = expression(paste("Estimates of ",sigma^2, "over time"))) +   scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 
+
 #now-cast-phi
-ggplot(phi.df,aes(x = ymd, y= point.est, color = Survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
+nowCastPhi <- ggplot(phi.df,aes(x = ymd, y= point.est, color = Survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
   theme_bw() + ylim(0.5,2.5)  + scale_x_date(date_labels = "%b '%y", breaks = "1 month") + scale_color_manual(values = c("#4891dc","#69913b")) +
   labs(x = "Date", y = expression(paste("Estimates of ",phi)),title = expression(paste("Now-cast posterior estimates of ",phi," by survey"))) 
   
+
+pisq.df <- data.frame(ymd = ref.dates, point.est = pisq.est, CI.L = pisq.CI$CI.L,CI.U = pisq.CI$CI.U)
+pisqFigure8 <- ggplot(pisq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
+  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",pi^2)),title = expression(paste("Estimates of ",pi^2, "over time")))  +   scale_x_date(date_labels = "%b '%y", breaks = "1 month")
+
+
+
+#save plot
+ggsave("Figures/Figure7NowCast.png",plot = nowcastPlotFigure7, width = 24,height = 16,unit = "cm")
+ggsave("Figures/Figure8sigmasq.png",plot = sigmasqFigure8, width = 14,height = 10,unit = "cm")
+ggsave("Figures/Figure8pisq.png",plot = pisqFigure8, width = 14,height =10,unit = "cm")
+ggsave("Figures/nowCastPhi.png",plot = nowCastPhi, width = 14,height =10,unit = "cm")
 
 #mean gain
 gain <- (ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])
@@ -456,10 +511,6 @@ median(gain) # 1.242806 $24%
 
 
 #get graph for pisq
-
-pisq.df <- data.frame(ymd = ref.dates, point.est = pisq.est, CI.L = pisq.CI$CI.L,CI.U = pisq.CI$CI.U)
-ggplot(pisq.df, aes(x = ymd, y = point.est)) + geom_point() + geom_line() + geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + 
-  theme_bw() + labs(x = "date", y = expression(paste("Estimates of ",pi^2)),title = expression(paste("Estimates of ",pi^2, "over time")))  +   scale_x_date(date_labels = "%b '%y", breaks = "1 month")
 
 
 
@@ -501,27 +552,31 @@ phat <- ax_df$point.est
 n.old <- (1.96^2 * phat*(1-phat))/MOE.ax^2
 n.new <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.fb)^2
 
-mean(n.new-n.old) #534.468
-median(n.new-n.old) # 443.0177
+mean(n.new-n.old) #535.0313
+median(n.new-n.old) # 439.4317
 
 n.new.hp <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.hp)^2
 
-mean(n.new.hp-n.old) # 235.0211
-median(n.new.hp-n.old) #131.0021
+mean(n.new.hp-n.old) # 233.993
+median(n.new.hp-n.old) #135.56
 #combined
 
 n.new.full <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.full)^2
 
 
-mean(n.new.full-n.old) #  825.247
+mean(n.new.full-n.old) #  823.2258
 
-median(n.new.full-n.old)# 817.2348
+median(n.new.full-n.old)# 804.84
 
 
 n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("Both Surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
 
-ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw() + 
+appendixNPlot <- ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw() + 
   labs(x ="Date",y = "Number of iid samples gained compared to Axios-Ipsos",title = "Barplot of number of iid samples gained when including the biased surveys",fill = "Survey")+scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
+
+ggsave("Figures/appendixNgain.png",plot = appendixNPlot, width = 24,height = 16,unit = "cm")
+
+
 
 write.csv(fb_df,"Data/fb_df_new.csv",row.names = F)
 write.csv(chp_df,"Data/chp_df_new.csv",row.names = F)
@@ -534,6 +589,61 @@ write.csv(sigmasq.df,"Data/sigmasq_df.csv",row.names = F)
 
 save.image(file = "Results/NowCastResults.RData")
 
+#get the delman diag maxmimum
+gelmanMaxRhat <- lapply(gelman.diag.list, function(x){
+  return(max(x$psrf))
+  
+  
+})
+do.call(max,gelmanMaxRhat[-2])
+do.call(max,gelmanMaxRhat[-2])
 
+save(results.nowcast.full,gelman.diag.list,file = "Results/NowCastResults.RData")
+
+
+#now the 48 nowncast estimates all in a trace plot
+
+allTracePlots <- do.call(rbind, traceplot.list )
+
+parameters <- allTracePlots %>% pull(Parameter) %>% unique() %>% as.character()
+
+positiverates <- parameters[grep("positiverate",parameters)]
+gamma2 <- parameters[grep("gamma",parameters)][1:48] #gamma2 is census household-pulse
+gamma3 <- parameters[grep("gamma",parameters)][49:96] #gamma3 is facebook
+
+
+mcmc.list.tail <- allTracePlots %>% filter(Iteration > 90000)
+
+
+### create trace-plots for each parameter set, breaking it up into 24x2 intervals
+traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 1-24 (Now-cast)")
+
+traceplot_positiverate_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(positiverates[25:48]),"sigmasq"))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 25-48 and sigmasq (Now-cast)")
+
+traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 1-24 (Nowc-ast)")
+
+traceplot_gamma2_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[1:24])) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Now-cast)")
+
+traceplot_gamma2_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[25:48])) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Now-cast)")
+
+traceplot_gamma3_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma3[1:24])) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Delphi-Facebook) time-points 1-24 (Now-cast)")
+
+traceplot_gamma3_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(gamma3[25:48]),"pisq"))) +
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Delphi-Facebook) and pisq time-points 1-24 (Now-cast)")
+
+
+
+ggsave("Figures/traceplot_posrate_1_24_nowcast.png",plot = traceplot_positiverate_1_24,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_posrate_25_48_nowcast.png",plot = traceplot_positiverate_25_48,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma2_1_24_nowcast.png",plot = traceplot_gamma2_1_24,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma2_25_48_nowcast.png",plot = traceplot_gamma2_25_48,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma3_1_24_nowcast.png",plot = traceplot_gamma3_1_24,width = 48,height = 40, unit = "cm",bg = "white")
+ggsave("Figures/traceplot_gamma3_25_48_nowcast.png",plot = traceplot_gamma3_25_48,width = 48,height = 40, unit = "cm",bg = "white")
 
 
