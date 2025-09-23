@@ -290,7 +290,7 @@ for (k in 1:K){
 }')
 
 
-n.chains <- 8
+n.chains <- 4
 cl <- makePSOCKcluster(n.chains)
 
 clusterEvalQ(cl, library(dclone))
@@ -378,3 +378,6 @@ mean((CI.1$Upper-CI.1$Lower)/(CI.full$Upper-CI.full$Lower))
 
 #now-cast
 (CI.1$Upper[10]-CI.1$Lower[10])/(CI.full$Upper[10]-CI.full$Lower[10])
+
+
+ggsave("Figures/proofOfConceptPlots.png",plot = proofOfConceptPlots, width = 24, height = 16, units = 'cm')
