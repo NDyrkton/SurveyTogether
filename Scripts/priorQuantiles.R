@@ -63,7 +63,11 @@ phi2 <- exp(rnorm(100000,mean = 0,sd = sqrt(pi)))
 quantile(phi2-exp(0),seq(0,1,0.05))
 
 
+# part 2
+pi <- rtruncnorm(100000,mean = 0,sd = sqrt(1),a = 0, b = Inf)
 
+phi2 <- exp(rnorm(100000,mean = 0,sd = sqrt(pi)))
+quantile(phi2-exp(0),seq(0,1,0.05))
 
 
 

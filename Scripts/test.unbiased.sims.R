@@ -7,7 +7,7 @@ library(truncnorm)
 library(ggplot2)
 library(dclone)
 
-#T = 10, 10 timpoints
+#T = 15, 15 timpoints
 
 #First step is to generate data under 3 conditions for phi (bias term)
 #1: Phi is constant by  time, 2: Phi is linear in time, and 3: Phi follows a random walk 
@@ -34,7 +34,7 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
     smalln[k,] <- rep(100,length(t))
     
     if(k>1){
-      smalln[k,] <- rep(1000,length(t))
+      smalln[k,] <- rep(10000,length(t))
     }
   }
   
@@ -43,7 +43,7 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
   times <- t(matrix(rep(t,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
+  sigmasq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.1))
   theta0 <- rnorm(1,mean =0, sd = sqrt(1))
   
   if(phi == "constant"){
@@ -125,7 +125,7 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
     gamma_kt[1,] <- rep(0,length(t))
     #prior
     
-    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/100))
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.01))
     
     
     
@@ -171,31 +171,14 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
   
 }
 
-
-check.bad.data <- function(data.list,phi = 'constant', K = 3){
-  
-  max.Y <- max(data.list$Y[2:K,])
-  
-  
-  while(sum(data.list$Y[2:K,]==max.Y | data.list$Y[2:K,]==0)>=1){
-    print(paste("bad data on i =", i))
-    
-    data.list <- generate.dataset(phi = phi,t = t,K = K)
-    
-  }
-  
-  return(data.list)
-  
-}
-
-
 #JAGS MODEL for constant phi
 mod.const.phi<- custommodel('
 model{	
 #likelihood
 
 for (t in 1:T){
-		phi[1,t] <- 1	}
+		phi[1,t] <- 1	
+}
 
 for (k in 2:K){
 	for (t in 1:T){
@@ -223,7 +206,7 @@ for (k in 1:K){
 theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 }
 }')
@@ -233,7 +216,8 @@ model{
 #likelihood
 
 for (t in 1:T){
-		phi[1,t] <- 1	}
+		phi[1,t] <- 1	
+}
 
 for (k in 2:K){
 	for (t in 1:T){
@@ -261,7 +245,7 @@ for (k in 1:K){
 theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 	gamma1[k] ~ dnorm(0, 1/0.01);
 }
@@ -309,10 +293,42 @@ theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 pisq ~ dnorm(0, 1/0.01)T(0,);
 
-for (k in 1:K){
+for (k in 2:K){
 	gamma0[k] ~ dnorm(0, 1);
 
 }
+
+}')
+
+
+mod.unbiased <- custommodel('
+model{	
+#likelihood
+
+for (i in 1:T){
+		phi[1,i] <- 1	
+}
+
+
+	
+theta[1] ~ dnorm(theta0,1/sigmasq)
+positiverate[1]	<- ilogit(theta[1])
+for(t in 2:T){
+	theta[t] ~ dnorm(theta[t-1],1/sigmasq)
+	positiverate[t]	<- ilogit(theta[t])
+}
+
+
+for (k in 1:K){
+	for (t in 1:T){
+		
+		Y[k,t] ~ dbin(   (positiverate[t]*phi[k,t])/(1-positiverate[t] + (positiverate[t]*phi[k,t])),   smalln[k,t])
+	}
+}
+
+#priors
+theta0 ~ dnorm(0, 1);
+sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
 }')
 
@@ -332,8 +348,8 @@ extract.unbiased <- function(datalist){
   return(new.list)
 }
 
-get.median <- function(mcmc.obj,timepoint){
-  return(summary(mcmc.obj)$quantiles[,3][timepoint])
+get.median <- function(mcmc.obj){
+  return(summary(mcmc.obj)$quantiles[3])
 }
 
 dcoptions("verbose"=F)#mute the output of dclone
@@ -348,7 +364,7 @@ generate.data.replicates <- function(phi = "constant",t = 1:5,NN,K = 3){
   for(i in 1:NN){
     gen.data <- generate.dataset(phi = phi,t = t)
     
-    if(sum(gen.data$Y[2:K,]==1000 | gen.data$Y[2:K,]==0)>=1){
+    if(sum(gen.data$Y[2:K,]==10000 | gen.data$Y[2:K,]==0)>=1){
       print(paste("bad data on i =", i))
       
     }
@@ -363,7 +379,7 @@ check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
   
   for(i in 1:length(data.list)){
     
-    if(sum(data.list[[i]]$Y[2:K,]==1000 | data.list[[i]]$Y[2:K,]==0)>=1){
+    if(sum(data.list[[i]]$Y[2:K,]==10000 | data.list[[i]]$Y[2:K,]==0)>=1){
       print(paste("bad data on i =", i))
       
       data.list[[i]] <- generate.dataset(phi = phi,t = t,K = K)
@@ -377,16 +393,16 @@ check.bad.data <- function(data.list,t = 1:5,phi = 'constant',K = 3){
 
 #narrow priors slightly
 
-NN <- 2000
+NN <- 100
 
 
-set.seed(7515839)
-data.const <- generate.data.replicates(phi = "constant", NN = NN,t = 1:15)
-data.linear  <- generate.data.replicates(phi = "linear", NN = NN,t = 1:15)
-data.walk  <- generate.data.replicates(phi = "walk", NN = NN,t = 1:15)
+set.seed(515839)
+data.const <- generate.data.replicates(phi = "constant", NN = NN,t = 1:30)
+data.linear  <- generate.data.replicates(phi = "linear", NN = NN,t = 1:30)
+data.walk  <- generate.data.replicates(phi = "walk", NN = NN,t = 1:30)
 
 
-cl <- makePSOCKcluster(10)
+cl <- makePSOCKcluster(6)
 
 clusterEvalQ(cl, library(dclone))
 load.module("lecuyer")
@@ -406,9 +422,10 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti 
   colnames(only.unbiased) <- c("const","linear", "walk")
   
   
+  posrate.ti <- paste0("positiverate","[",ti,"]")
   
   for(j in 1:NN){
-
+    
     
     chain1<- list(.RNG.name = "base::Wichmann-Hill", 
                   .RNG.seed = c(j))
@@ -422,16 +439,8 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti 
                   .RNG.seed = c(j+5))
     chain6<- list(.RNG.name = "base::Super-Duper", 
                   .RNG.seed = c(j+6))
-    chain7<- list(.RNG.name = "base::Wichmann-Hill", 
-                  .RNG.seed = c(j+7))
-    chain8<- list(.RNG.name = "base::Super-Duper", 
-                  .RNG.seed = c(j+8))
-    chain9<- list(.RNG.name = "base::Wichmann-Hill", 
-                  .RNG.seed = c(j+9))
-    chain10<- list(.RNG.name = "base::Super-Duper", 
-                  .RNG.seed = c(j+10))
     
-    chains.init <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8,chain9,chain10)
+    chains.init <- list(chain1,chain2,chain3,chain4,chain5,chain6)
     
     
     data.const.phi <- data.const[[j]]
@@ -451,61 +460,63 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti 
     unbiased.linear.phi <- extract.unbiased(data.linear.phi)
     unbiased.walk.phi <- extract.unbiased(data.walk.phi)
     
+    
     #data x model
     
     if(j %% 10 ==0) print(j)
     
-    const.const <- jags.parfit(cl, data.const.phi, "positiverate", mod.const.phi,
-                               n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j,"const x const"] <- pos.rate.const - get.median(const.const,ti)
+    const.const <-  jags.parfit(cl, data.const.phi, posrate.ti, mod.const.phi,
+                                     n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+        
+    error[j,"const x const"] <- get.median(const.const) - pos.rate.const 
     
-    const.linear <- jags.parfit(cl, data.const.phi, "positiverate", mod.linear.phi,
-                                n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "const x linear"] <- pos.rate.const - get.median(const.linear,ti)
+    const.linear <- jags.parfit(cl, data.const.phi, posrate.ti, mod.linear.phi,
+                                n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "const x linear"] <- get.median(const.linear) - pos.rate.const
     
-    const.walk <- jags.parfit(cl, data.const.phi, "positiverate", mod.walk.phi,
-                              n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "const x walk"] <- pos.rate.const - get.median(const.walk,ti)
+    const.walk <- jags.parfit(cl, data.const.phi, posrate.ti, mod.walk.phi,
+                              n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "const x walk"] <- get.median(const.walk) - pos.rate.const
     
-    linear.const <- jags.parfit(cl, data.linear.phi, "positiverate", mod.const.phi,
-                                n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "linear x const"] <- pos.rate.linear - get.median(linear.const,ti)
+    linear.const <- jags.parfit(cl, data.linear.phi, posrate.ti, mod.const.phi,
+                                n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "linear x const"] <- get.median(linear.const) - pos.rate.linear
     
-    linear.linear <- jags.parfit(cl, data.linear.phi, "positiverate", mod.linear.phi,
-                                 n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "linear x linear"] <- pos.rate.linear - get.median(linear.linear,ti)
+    linear.linear <- jags.parfit(cl, data.linear.phi, posrate.ti, mod.linear.phi,
+                                 n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "linear x linear"] <- get.median(linear.linear) - pos.rate.linear
     
-    linear.walk <- jags.parfit(cl, data.linear.phi, "positiverate", mod.walk.phi,
-                               n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "linear x walk"] <- pos.rate.linear - get.median(linear.walk,ti)
+    linear.walk <- jags.parfit(cl, data.linear.phi, posrate.ti, mod.walk.phi,
+                               n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "linear x walk"] <- get.median(linear.walk) - pos.rate.linear
     
-    walk.const <- jags.parfit(cl, data.walk.phi, "positiverate", mod.const.phi,
-                              n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "walk x const"] <- pos.rate.walk - get.median(walk.const,ti)
+    walk.const <- jags.parfit(cl, data.walk.phi, posrate.ti, mod.const.phi,
+                              n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "walk x const"] <-  get.median(walk.const) - pos.rate.walk 
     
-    walk.linear <- jags.parfit(cl, data.walk.phi, "positiverate", mod.linear.phi,
-                               n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "walk x linear"] <- pos.rate.walk - get.median(walk.linear,ti)
+    walk.linear <- jags.parfit(cl, data.walk.phi, posrate.ti, mod.linear.phi,
+                               n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "walk x linear"] <-  get.median(walk.linear) - pos.rate.walk
     
-    walk.walk <- jags.parfit(cl, data.walk.phi, "positiverate", mod.walk.phi,
-                             n.chains = 10,n.adapt = 25000,thin = 5, n.iter = 70000,inits = chains.init)
-    error[j, "walk x walk"] <- pos.rate.walk - get.median(walk.walk,ti)
+    walk.walk <- jags.parfit(cl, data.walk.phi, posrate.ti, mod.walk.phi,
+                             n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    error[j, "walk x walk"] <- get.median(walk.walk) - pos.rate.walk
     
     #one unbiased survey only.
     #data x model
     
     
-    unb.const<- jags.parfit(cl, unbiased.const.phi, "positiverate", mod.const.phi,
-                            n.chains = 10,n.adapt =20000,thin = 5, n.iter = 50000,inits = chains.init)
-    only.unbiased[j, "const"] <- pos.rate.const - get.median(unb.const,ti)
+    unb.const <- jags.parfit(cl, unbiased.const.phi, posrate.ti, mod.const.phi,
+                            n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    only.unbiased[j, "const"] <- get.median(unb.const) - pos.rate.const
     
-    unb.linear <- jags.parfit(cl, unbiased.linear.phi, "positiverate", mod.const.phi,
-                              n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
-    only.unbiased[j, "linear"] <- pos.rate.linear - get.median(unb.linear,ti)
+    unb.linear <- jags.parfit(cl, unbiased.linear.phi, posrate.ti, mod.const.phi,
+                              n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    only.unbiased[j, "linear"] <- get.median(unb.linear) - pos.rate.linear 
     
-    unb.walk <- jags.parfit(cl, unbiased.walk.phi, "positiverate", mod.const.phi,
-                            n.chains = 10,n.adapt = 20000,thin = 5, n.iter = 50000,inits = chains.init)
-    only.unbiased[j, "walk"] <- pos.rate.walk - get.median(unb.walk,ti)
+    unb.walk <- jags.parfit(cl, unbiased.walk.phi, posrate.ti, mod.const.phi,
+                            n.chains = 6,n.adapt = 10000,thin = 5, n.iter = 50000,inits = chains.init)
+    only.unbiased[j, "walk"] <- get.median(unb.walk)- pos.rate.walk
     
   }
   
@@ -520,8 +531,8 @@ run.simulation <- function(cl,data.const, data.linear, data.walk, NN = 1000, ti 
 }
 
 #run the simulation
-
-results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = NN,ti = 15)
+NN <- 10
+results.plot.final  <- run.simulation(cl,data.const,data.linear,data.walk,NN = NN,ti = 30)
 
 
 #end parallel
@@ -567,8 +578,40 @@ results.plot.unb <- data.frame(data = c("const","linear","walk"), model = rep("u
 
 plot.final <- rbind(results.plot,results.plot.unb)
 
-#ggplot(data = plot.final, aes(x = data, y = MSE, group = model,colour = model)) + geom_point() + geom_line(linewidth = 0.75) + theme_bw()  + labs(x = "Data generation", y = "Mean Squared Error x 100", title = paste("MSE of 1500 reptitions: 5, 10, and 15 timepoints")) +
-#scale_color_manual(values = c("const"="red","linear" = "green",walk="blue",unbiased = "black")) + geom_ribbon(aes(ymin = MSE-1.96*MCSE,ymax = MSE+1.96*MCSE),alpha = 0.2)
+ggplot(data = plot.final, aes(x = data, y = MSE, group = model,colour = model)) + geom_point() + geom_line(linewidth = 0.75) + theme_bw()  + labs(x = "Data generation", y = "Mean Squared Error x 100", title = paste("MSE of 1500 reptitions: 5, 10, and 15 timepoints")) +
+scale_color_manual(values = c("const"="red","linear" = "green",walk="blue",unbiased = "black")) + geom_ribbon(aes(ymin = MSE-1.96*MCSE,ymax = MSE+1.96*MCSE),alpha = 0.2)
+
+
+# next for  bias
+
+
+#the 3x3 MSE
+MSE.3x3 <- apply(results.plot.final[[1]],2,function(x){mean(x)})
+#unb MSE
+MSE.unb <- apply(results.plot.final[[2]],2,function(x){mean(x)})
+
+MCSE.3x3 <- apply(results.plot.final[[1]],2,function(x){sd(x)/sqrt(NN)})
+
+MCSE.unb <- apply(results.plot.final[[2]],2,function(x){sd(x)/sqrt(NN)})
+
+#multiply by 100 to get in percentage
+results.plot <- data.frame(data = c(rep(c("const"),3),rep(c("linear"),3), rep(c("walk"),3)), model = rep(c("const","linear","walk"),3),MSE = MSE.3x3,MCSE= MCSE.3x3)
+results.plot.unb <- data.frame(data = c("const","linear","walk"), model = rep("unbiased",3),MSE = MSE.unb,MCSE=MCSE.unb)
+
+plot.final <- rbind(results.plot,results.plot.unb)
+
+
+
+ggplot(data = plot.final, aes(x = data, y = MSE, group = model,colour = model)) + geom_point() + geom_line(linewidth = 0.75) + theme_bw()  + labs(x = "Data generation", y = "Mean Squared Error x 100", title = paste("MSE of 1500 reptitions: 5, 10, and 15 timepoints")) +
+scale_color_manual(values = c("const"="red","linear" = "green",walk="blue",unbiased = "black")) + geom_ribbon(aes(ymin = MSE-1.96*MCSE,ymax = MSE+1.96*MCSE),alpha = 0.2)
+
+
+
+
+
+
+
+
 
 
 #write the final MCSE
