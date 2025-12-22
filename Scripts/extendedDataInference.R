@@ -253,7 +253,8 @@ list.chains = list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
 
 #now run linear phi for each of the unbiased surveys
 line.ipsos <- jags.parfit(cl, ipsos.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                          n.chains= n.chains ,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
+                          n.chains= n.chains ,n.adapt = 50000,thin = 5, n.update = 200000, n.iter = 500000,inits = list.chains)
+
 
 #check convergence
 gelman.diag(line.ipsos)
@@ -264,7 +265,7 @@ CI.ipsos <- get.CI(line.ipsos,"positiverate")
 
 
 line.household <- jags.parfit(cl, household.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                              n.chains=n.chains ,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
+                              n.chains=n.chains ,n.adapt = 50000,thin = 5, n.update = 200000 ,n.iter = 500000,inits = list.chains)
 
 gelman.diag(line.household)
 
@@ -274,7 +275,7 @@ CI.household <- get.CI(line.household,"positiverate")
 
 
 line.facebook <- jags.parfit(cl, facebook.dat, c("positiverate","gamma0","gamma1","sigmasq"), custommodel(mod.linear.phi),
-                             n.chains=n.chains ,n.adapt = 200000,thin = 5, n.iter = 500000,inits = list.chains)
+                             n.chains=n.chains ,n.adapt = 50000,thin = 5,n.update = 200000 ,n.iter = 500000,inits = list.chains)
 
 #point estimates and CIs
 gelman.diag(line.facebook)
@@ -286,21 +287,25 @@ CI.facebook <-  get.CI(line.facebook,"positiverate")
 #run method for three types of models for phi
 
 line.const <- jags.parfit(cl, data.list.extended, c("positiverate","gamma0","sigmasq"), custommodel(mod.const.phi),
-                          n.chains=n.chains ,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
+                          n.chains=n.chains ,n.adapt = 50000, thin = 5, n.update = 200000, n.iter = 1000000,inits = list.chains)
 
 line.linear <- jags.parfit(cl, data.list.extended, c("positiverate","sigmasq","phi"), custommodel(mod.linear.phi),
-                         n.chains=n.chains ,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
+                         n.chains=n.chains ,n.adapt = 50000, thin = 5, n.iter = 1000000,inits = list.chains)
 
 
 line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigmasq","pisq"), custommodel(mod.walk.phi),
-                         n.chains= n.chains ,n.adapt = 250000,thin = 5, n.iter = 500000,inits = list.chains)
+                         n.chains= n.chains ,n.adapt = 50000 , thin = 5,n.update = 200000 ,n.iter = 1000000,inits = list.chains)
 
 
-#constant model does not converge
-#gelman.diag(line.const)
+#constant model has convergence issues
+gelman.diag(line.const)
 
-#gelman.diag(line.linear) #notrun if phi is included --- phi is 1 for k = 1, thus the funciton won't work
-#gelman.diag(line.walk) 
+gelman.diag(line.linear) 
+gelman.diag(line.walk) 
+
+effectiveSize(line.const)
+effectiveSize(line.linear)
+effectiveSize(line.walk)
 
 
 #save all point estimates
