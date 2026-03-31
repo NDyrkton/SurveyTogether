@@ -47,7 +47,7 @@ theta0 ~ dnorm(-2, 1);
 sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
+	gamma0[k] ~ dnorm(0, 1/10);
 }
 }'
 
@@ -63,7 +63,7 @@ for (i in 1:T){
 
 for (k in 2:K){
 	for (t in 1:T){
-		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
+		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times_centered[k,t])
 	}
 }
 	
@@ -100,8 +100,8 @@ theta0 ~ dnorm(-2, 1);
 sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.25);
+	gamma0[k] ~ dnorm(0, 1/10);
+	gamma1[k] ~ dnorm(0, 1);
 }
 }'
 
@@ -153,7 +153,7 @@ sigmasq ~ dnorm(0, 1)T(0,);
 pisq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
+	gamma0[k] ~ dnorm(0, 1/10);
 
 }
 
@@ -209,7 +209,7 @@ theta0 ~ dnorm(-2, 1);
 sigmasq ~ dnorm(0, 1/5)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
+	gamma0[k] ~ dnorm(0, 1/10);
 }
 
 gamma1 ~ dnorm(0, 1/0.25);
