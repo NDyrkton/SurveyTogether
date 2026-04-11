@@ -86,36 +86,36 @@ extract.surveys <- function(datalist,row = 1){
   
   smalln <- datalist$smalln[row,]
   times <- datalist$times[row,]
-  T <- datalist$T
+  ti <- datalist$ti
   
   new.list <- list(K = K, 
-                   times = matrix(times,ncol = T), N = datalist$N, T = T,
-                   Y = matrix(Y,ncol = T), smalln = matrix(smalln,ncol = T))
+                   times = matrix(times,ncol = ti), N = datalist$N, ti = ti,
+                   Y = matrix(Y,ncol = ti), smalln = matrix(smalln,ncol = ti))
   return(new.list)
   
 }
 
 
 #now fixed to be consistent with notation in paper.
-generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
-  Y <- matrix(NA,ncol = length(t),nrow = K)
-  smalln <- matrix(0,ncol = length(t),nrow = K)
+generate.dataset <- function(N= 50000, K =3, ti = c(1:5), phi = "constant"){
+  Y <- matrix(NA,ncol = length(ti),nrow = K)
+  smalln <- matrix(0,ncol = length(ti),nrow = K)
   #get default smalln
   
   for(k in 1:K){
-    smalln[k,] <- rep(100,length(t))
+    smalln[k,] <- rep(100,length(ti))
     
     if(k>1){
-      smalln[k,] <- rep(1000,length(t))
+      smalln[k,] <- rep(1000,length(ti))
     }
   }
   
-  posrate_t <- numeric(length(t))
-  theta_t <- numeric(length(t))
-  times <- t(matrix(rep(t,K),ncol = K))
+  posrate_t <- numeric(length(ti))
+  theta_t <- numeric(length(ti))
+  times <- t(matrix(rep(ti,K),ncol = K))
   
   #priors on general parameters
-  sigmasq<- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1))
+  sigmasq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1))
   theta0 <- rnorm(1,mean =0, sd = sqrt(2))
   
   if(phi == "constant"){
@@ -128,17 +128,17 @@ generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
     
-    for(i in 2:length(t)){
+    for(i in 2:length(ti)){
       
       theta_t[i] <- rnorm(1,mean = theta_t[i-1],sd = sqrt(sigmasq))
       posrate_t[i] <- inv.logit(theta_t[i])
       
     }
-    P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
+    P_t <- rbinom(n = length(ti),size = N, prob = posrate_t)
     
     for(k in 1:K){
       
-      for(i in 1:length(t)){
+      for(i in 1:length(ti)){
         Y_kt <- rnoncenhypergeom(n = 1, n1 = P_t[i],n2 = N-P_t[i], m1 = smalln[k,i], psi = phi[k])
         Y[k,i] <- Y_kt
         
@@ -147,32 +147,32 @@ generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
     
     parameters <-  c(gamma0,sigmasq,posrate_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
-    posrate.names <- paste(rep("posrate",length(t)),1:length(t),sep = "")
+    posrate.names <- paste(rep("positiverate",length(ti)),1:length(ti),sep = "")
     names(parameters) <-  c(gamma0.names,"sigmasq",posrate.names,"theta0")
     
-    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
+    return(list(K=K, ti =max(ti), times=times, N=N, Y=Y, smalln=smalln, params = parameters,times_centered = times-median(times)))
     
   }else if(phi == "linear"){
-    phi_kt <- matrix(NA,nrow =K,ncol = length(t))
+    phi_kt <- matrix(NA,nrow =K,ncol = length(ti))
     #priors
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.25),K-1)))
+    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.01),K-1)))
     
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
     
-    for(i in 2:length(t)){
+    for(i in 2:length(ti)){
       theta_t[i] <- rnorm(1,mean = theta_t[i-1],sd = sqrt(sigmasq))
       posrate_t[i] <- inv.logit(theta_t[i])
       
     }
     
-    P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
+    P_t <- rbinom(n = length(ti),size = N, prob = posrate_t)
     
     for(k in 1:K){
-      for(i in 1:length(t)){
+      for(i in 1:length(ti)){
         
-        phi_kt[k,i] <- exp(gamma_0k[k] + gamma_1k[k]*t[i])
+        phi_kt[k,i] <- exp(gamma_0k[k] + gamma_1k[k]*ti[i])
         
         Y_kt <- rnoncenhypergeom(n = 1, n1 = P_t[i],n2 = N-P_t[i], m1 = smalln[k,i], psi = phi_kt[k,i])
         Y[k,i] <- Y_kt
@@ -183,21 +183,21 @@ generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
     parameters <-  c(gamma_0k,gamma_1k,sigmasq,posrate_t, theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
     gamma1.names <- paste(rep("gamma1",K),1:K,sep = "")
-    posrate.names <- paste(rep("posrate",length(t)),1:length(t),sep = "")
+    posrate.names <- paste(rep("positiverate",length(ti)),1:length(ti),sep = "")
     names(parameters) <-  c(gamma0.names,gamma1.names,"sigmasq",posrate.names,"theta0")
     
-    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln,params = parameters))
+    return(list(K=K, ti =max(ti), times=times, N=N, Y=Y, smalln=smalln,params = parameters, times_centered = times-median(times)))
     
   }else if(phi == "walk"){
     
-    phi_kt <- matrix(NA,nrow =K,ncol = length(t))
-    gamma_kt <- matrix(NA,nrow = K,ncol = length(t))
+    phi_kt <- matrix(NA,nrow =K,ncol = length(ti))
+    gamma_kt <- matrix(NA,nrow = K,ncol = length(ti))
     
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_kt[1,] <- rep(0,length(t))
+    gamma_kt[1,] <- rep(0,length(ti))
     #prior
     
-    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1/100))
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(1))
     
     
     
@@ -209,7 +209,7 @@ generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
     gamma_kt[2:K,1] <- rnorm(K-1,mean = gamma_0k[2:K],sd = sqrt(pisq))
     phi_kt[2:K,1] <- exp(gamma_kt[2:K,1])
     
-    for(i in 2:length(t)){
+    for(i in 2:length(ti)){
       
       gamma_kt[2:K,i] <- rnorm(K-1, mean = gamma_kt[2:K,i-1],sd = sqrt(c(pisq,pisq)))
       phi_kt[2:K,i] <- exp(gamma_kt[2:K,i])
@@ -220,11 +220,11 @@ generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
       
     }
     
-    P_t <- rbinom(n = length(t),size = N, prob = posrate_t)
+    P_t <- rbinom(n = length(ti),size = N, prob = posrate_t)
     
     for(k in 1:K){
       
-      for(i in 1:length(t)){
+      for(i in 1:length(ti)){
         
         Y_kt <- rnoncenhypergeom(n = 1, n1 = P_t[i],n2 = N-P_t[i], m1 = smalln[k,i], psi = phi_kt[k,i])
         Y[k,i] <- Y_kt
@@ -232,16 +232,17 @@ generate.dataset <- function(N= 50000, K =3, t = c(1:5), phi = "constant"){
     }
     parameters <- c(gamma_0k,as.numeric(gamma_kt),sigmasq,pisq,posrate_t,theta0)
     gamma0.names <- paste(rep("gamma0",K),1:K,sep = "")
-    gamma_kt.c <- expand.grid(1:K,1:length(t))
-    gamma_kt.names <- paste(rep("gamma_",K*length(t)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
-    posrate.names <- paste(rep("posrate",length(t)),1:length(t),sep = "")
+    gamma_kt.c <- expand.grid(1:K,1:length(ti))
+    gamma_kt.names <- paste(rep("gamma_",K*length(ti)),as.character(gamma_kt.c$Var1),as.character(gamma_kt.c$Var2),sep = '')
+    posrate.names <- paste(rep("positiverate",length(ti)),1:length(ti),sep = "")
     names(parameters) <-  c(gamma0.names,gamma_kt.names,"sigmasq","pisq",posrate.names,"theta0")
     
     
-    return(list(K=K, T=max(t), times=times, N=N, Y=Y, smalln=smalln, params = parameters))
+    return(list(K=K, ti = max(ti), times=times, N=N, Y=Y, smalln=smalln, params = parameters, times_centered = times-median(times)))
   }
   
 }
+
 
 
 
@@ -251,11 +252,11 @@ mod.linear.phi <- custommodel('
 model{	
 #likelihood
 
-for (t in 1:T){
+for (t in 1:ti){
 		phi[1,t] <- 1	}
 
 for (k in 2:K){
-	for (t in 1:T){
+	for (t in 1:ti){
 		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
 	}
 }
@@ -263,34 +264,44 @@ for (k in 2:K){
 	
 theta[1] ~ dnorm(theta0,1/sigmasq)
 positiverate[1]	<- ilogit(theta[1])
-for(t in 2:T){
+for(t in 2:ti){
 	theta[t] ~ dnorm(theta[t-1], 1/sigmasq)
 	positiverate[t]	<- ilogit(theta[t])
 }
 
-for(t in 1:T){
+for(t in 1:ti){
 	P[t] ~ dbin(positiverate[t], N)
 }
 
 for (k in 1:K){
-	for (t in 1:T){
+	for (t in 1:ti){
 		
 		Y[k,t] ~ dhyper(P[times[k,t]], N-P[times[k,t]], smalln[k,t], phi[k,t]);
 	}
 }
 
 #priors
-theta0 ~ dnorm(0, 2);
+theta0 ~ dnorm(0, 1/2);
 sigmasq ~ dnorm(0, 1)T(0,);
 
 for (k in 1:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.25);
+	gamma0[k] ~ dnorm(0, 1/10);
+	gamma1[k] ~ dnorm(0, 1);
 }
 }')
 
 
-n.chains <- 4
+n.chains <- 8
+cl <- makePSOCKcluster(n.chains)
+
+clusterEvalQ(cl, library(dclone))
+load.module("lecuyer")
+parLoadModule(cl,"lecuyer")
+
+
+set.seed(12345)
+
+n.chains <- 8
 cl <- makePSOCKcluster(n.chains)
 
 clusterEvalQ(cl, library(dclone))
@@ -321,21 +332,30 @@ chain3<- list(.RNG.name = "base::Wichmann-Hill",
               .RNG.seed = c(371))
 chain4<- list(.RNG.name = "base::Super-Duper", 
               .RNG.seed = c(482))
+chain5<- list(.RNG.name = "base::Wichmann-Hill", 
+              .RNG.seed = c(149))
+chain6<- list(.RNG.name = "base::Super-Duper", 
+              .RNG.seed = c(230))
+chain7<- list(.RNG.name = "base::Wichmann-Hill", 
+              .RNG.seed = c(321))
+chain8<- list(.RNG.name = "base::Super-Duper", 
+              .RNG.seed = c(412))
 
-inits.chains <- list(chain1,chain2,chain3,chain4)
+
+inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
 
 line.1 <- jags.parfit(cl, K_1, c("positiverate"), custommodel(mod.linear.phi),
-                      n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 50000
+                      n.chains=n.chains,n.adapt = 5000, n.update = 50000,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 line.2 <- jags.parfit(cl, K_2, c("positiverate"), custommodel(mod.linear.phi),
-                      n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 50000
+                      n.chains=n.chains,n.adapt = 5000, n.update = 50000, thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 line.3 <- jags.parfit(cl, K_3, c("positiverate"), custommodel(mod.linear.phi),
-                      n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 50000
+                      n.chains=n.chains,n.adapt = 5000,n.update = 50000, thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 
 line.full <- jags.parfit(cl, data, c("positiverate","gamma0",'gamma1'), custommodel(mod.linear.phi),
-                      n.chains=n.chains,n.adapt = 200000,thin = 5, n.iter = 100000
+                      n.chains=n.chains,n.adapt = 5000,n.update = 50000 ,thin = 5, n.iter = 50000
                       ,inits = inits.chains)
 
 posrate.1 <- get.point.est(line.1,'positiverate')
@@ -359,14 +379,14 @@ frame <- data.frame(Survey = c(rep("Survey 1",10),rep("Survey 2",10),rep("Survey
                                estimate = c(posrate.1,posrate.2,posrate.3,posrate.full),CI.L = c(CI.1$Lower,CI.2$Lower,CI.3$Lower,CI.full$Lower),
                                CI.U = c(CI.1$Upper,CI.2$Upper,CI.3$Upper,CI.full$Upper))
                     
-frame.posrate <-  data.frame(time = c(1:10),posrate = data$params[grep("posrate",names(data$params))])
+frame.posrate <-  data.frame(time = c(1:10),posrate = data$params[grep("positiverate",names(data$params))])
 
 library(RColorBrewer)
 proofOfConceptPlots <- ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line(linewidth= 0.75) + 
-  geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw() + 
-  labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate")) +
+  geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw(base_size = 18) + 
+  labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True positive rate")) +
   geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linewidth = 1.20) + 
-  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"black")) +   
+  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"blue" ,"black")) +   
   scale_x_continuous(breaks = seq(1, 10, by = 1))  
 
 
