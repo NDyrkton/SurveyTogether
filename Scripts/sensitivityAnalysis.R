@@ -611,7 +611,7 @@ sensitivityPlots <- ggplot(estimates.frame %>% filter(!(Survey %in% c("Survey 2"
   scale_colour_manual(name = "Method Type",values = c("Survey 1" ="royalblue","Linear Base"="magenta" ,"Linear Wide"= "red3", "Walk Base"="orange", "Walk Wide"="limegreen" ,"True Positive Rate"="black"))   
 
 
-ggsave("Figures/sensitivityPriors.png",plot = sensitivityPlots, width = 22, height = 16, units =  "cm")
+ggsave("Figures/sensitivityPriors.png",plot = sensitivityPlots,width = 26, height = 14, units = 'cm')
 
 
 #save the plot

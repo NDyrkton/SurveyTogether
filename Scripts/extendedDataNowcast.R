@@ -621,6 +621,7 @@ positiverates <- parameters[grep("positiverate",parameters)]
 gamma2 <- parameters[grep("gamma",parameters)][1:48] #gamma2 is census household-pulse
 gamma3 <- parameters[grep("gamma",parameters)][49:96] #gamma3 is facebook
 
+max(allTracePlots$Iteration)
 
 mcmc.list.tail <- allTracePlots %>% filter(Iteration > 90000)
 

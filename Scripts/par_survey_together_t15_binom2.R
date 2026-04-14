@@ -171,6 +171,24 @@ generate.dataset <- function(N= 10000000, K =3, t = c(1:5), phi = "constant"){
   
 }
 
+
+check.bad.data <- function(data.list,phi = 'constant', K = 3){
+  
+  max.Y <- max(data.list$Y[2:K,])
+  
+  
+  while(sum(data.list$Y[2:K,]==max.Y | data.list$Y[2:K,]==0)>=1){
+    print(paste("bad data on i =", i))
+    
+    data.list <- generate.dataset(phi = phi,t = t,K = K)
+    
+  }
+  
+  return(data.list)
+  
+}
+
+
 #JAGS MODEL for constant phi
 mod.const.phi<- custommodel('
 model{	

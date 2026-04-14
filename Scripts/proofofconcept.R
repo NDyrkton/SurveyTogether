@@ -156,7 +156,7 @@ generate.dataset <- function(N= 50000, K =3, ti = c(1:5), phi = "constant"){
     phi_kt <- matrix(NA,nrow =K,ncol = length(ti))
     #priors
     gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.01),K-1)))
+    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.05),K-1)))
     
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
@@ -257,7 +257,7 @@ for (t in 1:ti){
 
 for (k in 2:K){
 	for (t in 1:ti){
-		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times[k,t])
+		phi[k,t] <- exp(gamma0[k] + gamma1[k]*times_centered[k,t])
 	}
 }
 	
@@ -291,15 +291,6 @@ for (k in 1:K){
 }')
 
 
-n.chains <- 8
-cl <- makePSOCKcluster(n.chains)
-
-clusterEvalQ(cl, library(dclone))
-load.module("lecuyer")
-parLoadModule(cl,"lecuyer")
-
-
-set.seed(12345)
 
 n.chains <- 8
 cl <- makePSOCKcluster(n.chains)
@@ -384,9 +375,9 @@ frame.posrate <-  data.frame(time = c(1:10),posrate = data$params[grep("positive
 library(RColorBrewer)
 proofOfConceptPlots <- ggplot(frame,aes(x = time, y = estimate, colour = Survey)) + geom_point() + geom_line(linewidth= 0.75) + 
   geom_ribbon(aes(ymin = CI.L,ymax = CI.U),alpha = 0.2) + theme_bw(base_size = 18) + 
-  labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") + geom_point(data=frame.posrate,aes(x = time, y = posrate,colour = "True positive rate")) +
+  labs(x = "Time", y = "Positive rate",title = "Example of the synthesis method on simulated data") +
   geom_line(data=frame.posrate,aes(x = time, y = posrate,colour = "True Positive rate"),linewidth = 1.20) + 
-  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen" ,"blue" ,"black")) +   
+  scale_colour_manual(name = "Survey",values = c("magenta" ,"royalblue","orange",  "limegreen","black")) +   
   scale_x_continuous(breaks = seq(1, 10, by = 1))  
 
 
@@ -400,4 +391,4 @@ mean((CI.1$Upper-CI.1$Lower)/(CI.full$Upper-CI.full$Lower))
 (CI.1$Upper[10]-CI.1$Lower[10])/(CI.full$Upper[10]-CI.full$Lower[10])
 
 
-ggsave("Figures/proofOfConceptPlots.png",plot = proofOfConceptPlots, width = 24, height = 16, units = 'cm')
+ggsave("Figures/proofOfConceptPlots.png",plot = proofOfConceptPlots, width = 26, height = 14, units = 'cm')
