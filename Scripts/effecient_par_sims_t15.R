@@ -6,7 +6,7 @@ library(coda)
 library(MCMCpack)
 library(truncnorm)
 
-set.seed(20251231)
+set.seed(20260102)
 
 inv.logit <- function(x){
   exp(x)/(1+exp(x))
@@ -25,7 +25,7 @@ generate.dataset <- function(N= 10000000, K =3, ti = c(1:5), phi = "constant"){
     smalln[k,] <- rep(100,length(ti))
     
     if(k>1){
-      smalln[k,] <- rep(50000,length(ti))
+      smalln[k,] <- rep(1000,length(ti))
     }
   }
   
@@ -39,7 +39,7 @@ generate.dataset <- function(N= 10000000, K =3, ti = c(1:5), phi = "constant"){
   
   if(phi == "constant"){
     #generate param based on prior
-    gamma0 <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1))) 
+    gamma0 <- c(0,rnorm(K-1,mean = 0.5, sd = rep(1,K-1))) 
     #constant phi values
     phi <- exp(gamma0)
     
@@ -74,8 +74,8 @@ generate.dataset <- function(N= 10000000, K =3, ti = c(1:5), phi = "constant"){
   }else if(phi == "linear"){
     phi_kt <- matrix(NA,nrow =K,ncol = length(ti))
     #priors
-    gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
-    gamma_1k <- c(0,rnorm(K-1,mean = 0, sd = rep(sqrt(0.05),K-1)))
+    gamma_0k <- c(0,rnorm(K-1,mean = 0.5, sd = rep(1,K-1)))
+    gamma_1k <- c(0,rnorm(K-1,mean = 0.05, sd = rep(sqrt(0.01),K-1)))
     
     theta_t[1] <- rnorm(1,mean = theta0,sd = sqrt(sigmasq))
     posrate_t[1] <- inv.logit(theta_t[1])
@@ -112,11 +112,11 @@ generate.dataset <- function(N= 10000000, K =3, ti = c(1:5), phi = "constant"){
     phi_kt <- matrix(NA,nrow =K,ncol = length(ti))
     gamma_kt <- matrix(NA,nrow = K,ncol = length(ti))
     
-    gamma_0k <- c(0,rnorm(K-1,mean = 0, sd = rep(1,K-1)))
+    gamma_0k <- c(0,rnorm(K-1,mean = 0.5, sd = rep(1,K-1)))
     gamma_kt[1,] <- rep(0,length(ti))
     #prior
     
-    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.05))
+    pisq <- rtruncnorm(1,a = 0, b = Inf, mean = 0, sd = sqrt(0.01))
     
     
     
@@ -223,7 +223,7 @@ theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
+	gamma0[k] ~ dnorm(0, 1/10);
 }
 }')
 
@@ -261,8 +261,8 @@ theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
-	gamma1[k] ~ dnorm(0, 1/0.05);
+	gamma0[k] ~ dnorm(0, 1/10);
+	gamma1[k] ~ dnorm(0, 1);
 }
 }')
 
@@ -306,10 +306,10 @@ for (k in 1:K){
 #priors
 theta0 ~ dnorm(0, 1);
 sigmasq ~ dnorm(0, 1/0.1)T(0,);
-pisq ~ dnorm(0, 1/0.05)T(0,);
+pisq ~ dnorm(0, 1)T(0,);
 
 for (k in 2:K){
-	gamma0[k] ~ dnorm(0, 1);
+	gamma0[k] ~ dnorm(0, 1/10);
 
 }
 
@@ -366,10 +366,10 @@ run.mod <- function(scenario, mod.name, model, dat, param, ti) {
 
 # setup parallel for computing, try 32 cores, 100,000 iterations
 
-cl <- makeCluster(32)
+cl <- makeCluster(96)
 registerDoParallel(cl)
 
-n_reps <- 100000
+n_reps <- 10000
 scenarios <- expand.grid(model = c("constant","linear","walk","unbiased"), dgm = c("constant","linear","walk"), replicate_id = 1:n_reps)
 scenarios$full.scenario <- paste(scenarios$dgm,"x",scenarios$model)
 
@@ -385,10 +385,10 @@ time = 15
 posrate.param <- paste("positiverate","[",time,"]")
 
 time1 <- Sys.time()
-result_df <- foreach(id = 1:nrow(scenarios), 
+results_df <- foreach(id = 1:nrow(scenarios), 
                           .packages = c("rjags", "coda","truncnorm","MCMCpack"), 
                           .combine = rbind,
-                          .options.RNG = 20251231) %dorng% {
+                          .options.RNG = 20260102) %dorng% {
                             
                             #gc(verbose = FALSE)
                             #picked scenario
@@ -438,14 +438,13 @@ print(time2-time1)
 
 
 library(dplyr)
-library(ggplot2)
 
 #group the data
 
 #write the full and summarised data
-write.csv("simulation_t15_full.csv",row.names = F)
+write.csv(results_df,"simulation_t15_full.csv",row.names = F)
 grouped.results <- results_df %>% group_by(dgm,model) %>% summarise(bias.total = mean(bias),mse.total = mean(bias^2),its = n(), mcse.bias = sd(bias)/sqrt(its),mcse.mse = sd(bias^2)/sqrt(its))
-write.csv("simulation_t15_summarised.csv",row.names = F)
+write.csv(grouped.results,"simulation_t15_summarised.csv",row.names = F)
 
 
 # ggplot(grouped.results,aes(x = dgm, y = bias.total, group = model,colour = model)) + geom_line() + geom_point() + geom_ribbon(aes(ymin = bias.total-1.96*mcse.bias,ymax = bias.total+1.96*mcse.bias),alpha = 0.2)
