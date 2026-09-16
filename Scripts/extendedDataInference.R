@@ -305,7 +305,7 @@ line.walk <- jags.parfit(cl, data.list.extended, c("positiverate","gamma","sigma
 # 
 #effectiveSize(line.const)
 #effectiveSize(line.linear)
-effectiveSize(line.walk)
+#effectiveSize(line.walk)
 stopCluster(cl)
 
 #save all point estimates
@@ -394,7 +394,7 @@ phi.dat <- data.frame(Survey = c(rep("Household-Pulse",48),rep("Delphi-Facebook"
                       CI.U =c(exp(rep(CI.const.gamma$Upper[1],48)),exp(rep(CI.const.gamma$Upper[2],48)),CI.linear.phi.2$Upper,CI.linear.phi.3$Upper,exp(CI.U_gamma2),exp(CI.U_gamma3)),
                       t= c(ref.dates,ref.dates,ref.dates,ref.dates,ref.dates,ref.dates))
 
-#Figures #
+#Figures for inference
 Figure4 <- fb_df %>% ggplot(aes(x = ymd, y = est)) + 
   geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
   geom_pointline(aes(x = ymd, y = est),color = "#4891dc") +  geom_errorbar(aes(ymin = CI_L, ymax = CI_U), color = "#4891dc", width = 0)+ geom_pointline(data = ax_df,aes(x=ymd, y = est), color = "#cf7a30") + 
@@ -406,7 +406,7 @@ Figure4 <- fb_df %>% ggplot(aes(x = ymd, y = est)) +
   theme_bw(base_size = 18) + labs(x = NULL, y = "% of US Adults with 1+ dose Vaccination",title = "Synthesis method in comparison to single survey estimates") + 
   annotate("text", x = as.Date("2021-10-20"), y = 0.68, size = 5, label = "Axios-Ipsos", color = "#cf7a30") + 
   annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 5, label = "Method", color = "magenta")+
-  annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 5, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
+  annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 5, label = "Delphi-Facebook", color = "#4891dc") + 
   annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 5, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
   annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 5, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)
 
@@ -441,7 +441,7 @@ median(gain)*100 #142.3487
 gain.barplot <- data.frame(date = fb_df$ymd[!is.na(data.list.extended$Y[1,])], ratio = gain) 
 
 Figure5 <- ggplot(gain.barplot,aes(x = date,y =gain), colour = 'grey4')+ geom_bar(stat = 'identity')+   scale_x_date(date_labels = "%b '%y", breaks = "1 month")+
-  theme_bw(base_size = 18) + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of 95% Credible Interval of Axios-Ipsos compared to the synthesis method") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) +
+  theme_bw(base_size = 18) + labs(x = "Date", y = "Axios-Ipsos CI width/Synthesis CI width",title = "Width of 95% Credible Interval of Axios-Ipsos to the synthesis method") + geom_hline(yintercept = c(mean(gain),median(gain)),colour = c("blue",'red')) +
   annotate("text", x = as.Date("2021-10-5"), y = 1.65, size = 8, label = "Mean", color = "blue") + 
   annotate("text", x = as.Date("2021-10-25"), y = 1.35, size = 8, label = "Median", color = "red")
 
@@ -453,9 +453,6 @@ ggsave("Figures/Figure6a.png",plot = Figure6a, width = 28,height = 12,unit = "cm
 ggsave("Figures/Figure6b.png",plot = Figure6b, width = 28,height = 12,unit = "cm")
 ggsave("Figures/Figure5Ngain.png",plot = Figure5, width = 28,height = 16,unit = "cm")
 
-
-#summary(line.walk)
-stopCluster(cl)
 
 
 #create MCMC plots
@@ -469,54 +466,51 @@ parameters <- unique(mcmc.list$Parameter)
 #generate positiverate parameters
 
 positiverates <- parameters[grep("positiverate",parameters)]
-gamma2 <- parameters[grep("gamma",parameters)][1:48] #gamma2 is census household-pulse
-gamma3 <- parameters[grep("gamma",parameters)][49:96] #gamma2 is census household-pulse
+gamma2 <-  paste0("gamma[2,", 1:48,"]")  #gamma2 is census household pulse
+gamma3 <- paste0("gamma[3,", 1:48,"]") #gamma3 is Delphi-Facebook
 
 
 ### create trace-plots for each parameter set, breaking it up into 24x2 intervals
 traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 1-24 (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time points 1-24 (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
                                                                                                                                                                      axis.text.x = element_blank(),
                                                                                                                                                                      axis.ticks.x = element_blank())
 
 traceplot_positiverate_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(positiverates[25:48]),"sigmasq"))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 25-48 and sigmasq (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
-                                                                                                                                                                                  axis.text.x = element_blank(),
-                                                                                                                                                                                  axis.ticks.x = element_blank())
-
-traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of positiverates time-points 1-24 (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
-                                                                                                                                                                     axis.text.x = element_blank(),
-                                                                                                                                                                     axis.ticks.x = element_blank())
-
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle(expression(paste("Trace plots of positiverates time points 25-48 and ", sigma^2 ," (Inference)")))+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
+                                                                                                                                                                                                           axis.text.x = element_blank(),
+                                                                                                                                                                                                           axis.ticks.x = element_blank())
 traceplot_gamma2_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[1:24])) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
-                                                                                                                                                                                      axis.text.x = element_blank(),
-                                                                                                                                                                                      axis.ticks.x = element_blank())
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle(expression(paste("Trace plots of ", gamma["2t"], " (Census Household Pulse) time points 1-24 (Inference)")))+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
+                                                                                                                                                                                                                     axis.text.x = element_blank(),
+                                                                                                                                                                                                                     axis.ticks.x = element_blank())
 
 traceplot_gamma2_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[25:48])) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Inference)") + theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
-                                                                                                                                                                                       axis.text.x = element_blank(),
-                                                                                                                                                                                       axis.ticks.x = element_blank())
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle(expression(paste("Trace plots of ", gamma["2t"] ," (Census Household Pulse) time points 25-48 (Inference)"))) + theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
+                                                                                                                                                                                                                      axis.text.x = element_blank(),
+                                                                                                                                                                                                                      axis.ticks.x = element_blank())
 
 traceplot_gamma3_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma3[1:24])) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Delphi-Facebook) time-points 1-24 (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
-                                                                                                                                                                               axis.text.x = element_blank(),
-                                                                                                                                                                               axis.ticks.x = element_blank())
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle(expression(paste("Trace plots of ", gamma["3t"], " (Delphi-Facebook) time points 1-24 (Inference)")))+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
+                                                                                                                                                                                                              axis.text.x = element_blank(),
+                                                                                                                                                                                                              axis.ticks.x = element_blank())
 
 traceplot_gamma3_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(gamma3[25:48]),"pisq"))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle("Trace plots of gamma (Delphi-Facebook) and pisq time-points 1-24 (Inference)")+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
-                                                                                                                                                                                        axis.text.x = element_blank(),
-                                                                                                                                                                                        axis.ticks.x = element_blank())
+  facet_wrap(~Parameter,scale = "free_y") + theme_minimal() + ggtitle(expression(paste("Trace plots of ", gamma["3t"]," (Delphi-Facebook) and ",pi^2 ," time points 25-48 (Inference)")))+ theme_bw(base_size = 18) + theme(axis.title.x = element_blank(),
+                                                                                                                                                                                                                           axis.text.x = element_blank(),
+                                                                                                                                                                                                                           axis.ticks.x = element_blank())
+
+#save.image(file = "Results/InferenceResults.RData") #for faster loading
 
 #save all plots
 
-ggsave("Figures/traceplot_posrate_1_24.png",plot = traceplot_positiverate_1_24,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_posrate_25_48.png",plot = traceplot_positiverate_25_48,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma2_1_24.png",plot = traceplot_gamma2_1_24,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma2_25_48.png",plot = traceplot_gamma2_25_48,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma3_1_24.png",plot = traceplot_gamma3_1_24,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma3_25_48.png",plot = traceplot_gamma3_25_48,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_posrate_1_24.png",plot = traceplot_positiverate_1_24,width = 46,height = 42, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_posrate_25_48.png",plot = traceplot_positiverate_25_48,width = 46,height = 42, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma2_1_24.png",plot = traceplot_gamma2_1_24,width = 46,height = 42, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma2_25_48.png",plot = traceplot_gamma2_25_48,width = 46,height = 42, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma3_1_24.png",plot = traceplot_gamma3_1_24,width = 46,height = 42, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma3_25_48.png",plot = traceplot_gamma3_25_48,width = 46,height = 42, unit = "cm",bg = "white", dpi = 250)
+
 
 
 

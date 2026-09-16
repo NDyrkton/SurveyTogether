@@ -2,7 +2,7 @@
 library(dclone)
 library(MCMCpack)
 library(dplyr)
-library(rjags)#redo on extended data.
+library(rjags)
 library(ggplot2)
 library(dplyr)
 library(lemon)
@@ -11,9 +11,8 @@ library(forecast)
 library(ggmcmc)
 
 
-
-source("Scripts/jagsMods.R")
-#source("Scripts/helperfunctions.R")
+# Load Jags models
+source("Functions/jagsMods.R")
 
 #import data
 data.list <- readRDS("data_extended.Rdata")
@@ -174,7 +173,6 @@ pisq.CI <- list(CI.U=numeric(fb.len),CI.L = numeric(fb.len))
 data.list.fb <- extract.surveys(data.list,c(1,3))
 data.list.hp <- extract.surveys(data.list,c(1,2))
 
-
 n.chains <- 8
 
 cl <- makePSOCKcluster(n.chains)
@@ -187,7 +185,7 @@ neff.list <- vector("list",48)
 gelman.diag.list <- vector("list",48)
 traceplot.list <- vector("list",48)
 
-dcoptions("verbose"=F)#mute the output of dclone
+dcoptions("verbose"=F) # mute the output of dclone
 for(t in 1:fb.len){
   
   #strings for parameter extraction
@@ -196,7 +194,7 @@ for(t in 1:fb.len){
   gamma3.t <- paste0("gamma[3,",t,"]")
   print(t)
   
-  #initialize seet for all chains
+  #initialize seeds for all chains
   
   chain1<- list(.RNG.name = "base::Wichmann-Hill", 
                 .RNG.seed = c(159+2*t))
@@ -218,7 +216,7 @@ for(t in 1:fb.len){
   inits.chains <- list(chain1,chain2,chain3,chain4,chain5,chain6,chain7,chain8)
   
 
-  #data.t is the data for all surveys up to time t
+  # data.t is the data for all surveys up to time t
   data.t <- extract.t(data.list,t)
   
   #"" for facebook 
@@ -226,22 +224,20 @@ for(t in 1:fb.len){
   data.list.hp.t <- extract.t(data.list.hp,t)
   
 
-  ###ipsos run##
+  ###ipsos run###
   if(t %in% c(1:ipsos.len)){
     
-    #data unique to ipsos
+    # Data unique to ipsos
     ipsos.t <- extract.t(ipsos.dat,t)
 
     line.ipsos <- jags.parfit(cl,ipsos.t, c(posrate.t), custommodel(mod.linear.phi),
                               n.chains=n.chains,n.adapt = 50000,thin = 5, n.iter = 250000,inits = inits.chains)
     
-    #get point estimate.
+    # Get point estimate.
     ipsos.posrates[t] <- get.point.est(line.ipsos,"positiverate")
     
-    #gelman.diag(line.ipsos)
 
-  
-    #get interval estimates
+    # Get interval estimates
     ipsos.CIs <- get.CI(line.ipsos,"positiverate")
     ipsos.CI$CI.U[t] <- ipsos.CIs$Upper
     ipsos.CI$CI.L[t] <- ipsos.CIs$Lower
@@ -284,7 +280,7 @@ for(t in 1:fb.len){
   
   
   
-  #run models for all surveys (random walk)
+  # Run models for all surveys (random walk)
   line.full <- jags.parfit(cl, data.t, c(posrate.t,"sigmasq",gamma2.t,gamma3.t,"pisq"), custommodel(mod.walk.phi),
                            n.chains=n.chains, n.adapt = 50000, n.update = 200000 ,thin = 5, n.iter = 500000
                            ,inits = inits.chains)
@@ -306,7 +302,7 @@ for(t in 1:fb.len){
   
   
   
-  #check for any lack of convergence (in current run, no convergence issues detected)
+  # Check for any lack of convergence (in current run, no convergence issues detected)
   if(any(gelman.diagnostics$psrf[,1] >= 1.1)){
     
     
@@ -384,27 +380,13 @@ for(t in 1:fb.len){
   mcmc.list.tail <- mcmc.list %>% filter(Iteration > 90000)
   
   #save in list to plot
-  
   traceplot.list[[t]] <- mcmc.list.tail
   
 
 }
 
-###
-
-
 stopCluster(cl)
-
-
-
-
-
-
-
-
-
-
-
+### End of run
 
 
 fb_df <- read.csv("Data/fb.csv")
@@ -449,14 +431,11 @@ cdc_df$vax_ub2 <- cdc_df$vax*1.05
 
 ref.dates <- fb_df$ymd
 
-
-
-
 method_df <- data.frame(ymd = ref.dates, point.est = full.posrates, CI.L = full.CI$CI.L, CI.U=full.CI$CI.U)
 
 
 
-
+# Get the nowcast plot
 nowcastPlotFigure7 <- fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_errorbar(aes(ymin = CI.L,ymax = CI.U),width = 0,color = "#4891dc")+
   geom_ribbon(data = cdc_df, aes(ymin = vax_lb2, ymax = vax_ub2), alpha = 0.3, color = "grey50") + 
   geom_pointline(color = "#4891dc") + geom_pointline(data = ax_df,aes(x = ymd, y = point.est), color = "#cf7a30") + 
@@ -468,12 +447,12 @@ nowcastPlotFigure7 <- fb_df %>% ggplot(aes(x = ymd, y = point.est)) + geom_error
   theme_bw(base_size = 18) + labs(x = NULL, y = "% of US Adults with 1+ dose Vaccination") + 
   annotate("text", x = as.Date("2021-10-20"), y = 0.68, size = 3, label = "Axios-Ipsos", color = "#cf7a30") + 
   annotate("text", x = as.Date("2021-08-20"), y = 0.63, size = 3, label = "Method", color = "magenta")+
-  annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook CTIS", color = "#4891dc") + 
+  annotate("text", x = as.Date("2021-08-01"), y = 0.87, size = 3, label = "Delphi-Facebook", color = "#4891dc") + 
   annotate("text", x = as.Date("2021-07-01"), y = 0.77, size = 3, label = "Census Household Pulse", color = "#69913b", angle = 10) + 
   annotate("label", x = as.Date("2021-05-01"), y = 0.53, size = 3, label = "CDC 18+\n(Retroactively updated)", angle = 5, color = "grey30", fill = "grey90", alpha = 0.6, label.size= 0, hjust = 0)  + ggtitle("Now-cast performance of the synthesis method")
 
-#Plot code from 
-#Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.
+# Plot code from 
+# Figure extends Bradley, Kurirwaki, Isakov, Sejdinovic, Meng, and Flaxman,<br> \"**Unrepresentative big surveys significantly overestimated US vaccine uptake**\" (_Nature_, Dec 2021, doi:10.1038/s41586-021-04198-4).<br> Article analyzed the period Jan-May 2021 with retroactively updated CDC numbers as of May 2021.<br> This figure extends the series up to December, with CDC's same series as of Dec 2021, with bands for potential +/- 2% error in CDC.<br> **Axios-Ipsos** (n = 1000 or so per point) shows +/- 3.4% 95 percent MOE, which is their modal value for the poll.<br> **Delphi-Facebook** (n = 250,000 per point) and **Census Household Pulse** (n = 75,000 per point) not shown.
 
 
 
@@ -487,7 +466,7 @@ sigmasqFigure9 <- ggplot(sigmasq.df, aes(x = ymd, y = point.est)) + geom_line() 
 
 
 
-#now-cast-phi
+# now-cast-phi
 nowCastPhi <- ggplot(phi.df,aes(x = ymd, y= point.est, color = Survey)) + geom_line() + geom_point() + geom_ribbon(aes(ymin =CI.L,ymax = CI.U),alpha = 0.2)+
   theme_bw(base_size = 16) + ylim(0.5,2.5)  + scale_x_date(date_labels = "%b '%y", breaks = "1 month") + scale_color_manual(values = c("#4891dc","#69913b")) +
   labs(x = "Date", y = expression(paste("Estimates of ",phi)),title = expression(paste("Now-cast posterior estimates of ",phi," by survey"))) 
@@ -508,14 +487,10 @@ ggsave("Figures/nowCastPhi.png",plot = nowCastPhi, width = 14,height =10,unit = 
 #mean gain
 gain <- (ax_df$CI.U-ax_df$CI.L) / (method_df$CI.U[!is.na(data.list$Y[1,])]-method_df$CI.L[!is.na(data.list$Y[1,])])
 
-mean(gain)#  1.235847 #24 % 
-median(gain) # 1.242806 $24%
+mean(gain) #  1.238 24% 
+median(gain) # 1.238956 $24%
 
-#the AX CI is 23% larger median and mean
-
-
-#get graph for pisq
-
+#the AX CI is 23-24% larger median and mean
 
 
 
@@ -556,24 +531,24 @@ phat <- ax_df$point.est
 n.old <- (1.96^2 * phat*(1-phat))/MOE.ax^2
 n.new <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.fb)^2
 
-mean(n.new-n.old) #535.0313
-median(n.new-n.old) # 439.4317
+mean(n.new-n.old) # 541.0228
+median(n.new-n.old) # 424.5649
 
 n.new.hp <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.hp)^2
 
-mean(n.new.hp-n.old) # 233.993
-median(n.new.hp-n.old) #135.56
+mean(n.new.hp-n.old) # 233.088
+median(n.new.hp-n.old) #125.12
 #combined
 
 n.new.full <- (1.96^2 * phat*(1-phat))/(MOE.ax*reduction.full)^2
 
 
-mean(n.new.full-n.old) #  823.2258
+mean(n.new.full-n.old) #  822.808
 
-median(n.new.full-n.old)# 834
+median(n.new.full-n.old) # 849.44
 
 
-n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household-Pulse",23),rep("Both Surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
+n.df <- data.frame(n= c(n.new-n.old,n.new.hp-n.old,n.new.full-n.old), surveys = c(rep("Delphi-Facebook",23),rep("Household Pulse",23),rep("Both Surveys",23)), date = c(ax_df$ymd,ax_df$ymd,ax_df$ymd))
 
 appendixNPlot <- ggplot(n.df,aes(x = date,y = n, fill = surveys)) + geom_bar(position='dodge',stat = "identity",col= 'black') + theme_bw(base_size = 18) + 
   labs(x ="Date",y = "iid sample size gained compared to Axios-Ipsos",title = "Barplot of iid sample size gained when including the biased surveys",fill = "Survey")+scale_x_date(date_labels = "%b '%y", breaks = "1 month") 
@@ -591,35 +566,30 @@ write.csv(pisq.df,"Data/pisq_df.csv",row.names = F)
 write.csv(sigmasq.df,"Data/sigmasq_df.csv",row.names = F)
 
 
-save.image(file = "Results/NowCastResults.RData")
+save.image(file = "Results/NowCastResults.RData") #for faster loading
 
 #get the delman diag maxmimum
 gelmanMaxRhat <- lapply(gelman.diag.list, function(x){
   return(max(x$psrf))
-  
   
 })
 
 minneff <- lapply(neff.list, function(x){
   return(min(x))
   
-  
 })
-do.call(max,gelmanMaxRhat[-2])
-do.call(max,gelmanMaxRhat[-2])
 
-save(results.nowcast.full,gelman.diag.list,file = "Results/NowCastResults.RData")
-
-
+max(do.call(rbind,gelmanMaxRhat[-c(2,6)]))
 #now the 48 now-cast estimates all in a trace plot
 
-allTracePlots <- do.call(rbind, traceplot.list )
+allTracePlots <- do.call(rbind, traceplot.list)
 
 parameters <- allTracePlots %>% pull(Parameter) %>% unique() %>% as.character()
 
 positiverates <- parameters[grep("positiverate",parameters)]
-gamma2 <- parameters[grep("gamma",parameters)][1:48] #gamma2 is census household-pulse
-gamma3 <- parameters[grep("gamma",parameters)][49:96] #gamma3 is facebook
+gamma2 <-  paste0("gamma[2,", 1:48,"]")  #gamma2 is census household pulse
+gamma3 <- paste0("gamma[3,", 1:48,"]") #gamma3 is Delphi-Facebook
+
 
 max(allTracePlots$Iteration)
 
@@ -634,42 +604,42 @@ traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter
         axis.ticks.x = element_blank())
 
 traceplot_positiverate_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(positiverates[25:48]),"sigmasq"))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of positiverates time-points 25-48 and sigmasq (Now-cast)") + theme(axis.title.x = element_blank(),
+  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle(expression(paste("Trace plots of positiverates time points 25-48 and ", sigma^2 ," (Now-cast)"))) + theme(axis.title.x = element_blank(),
                                                                                                                                                                  axis.text.x = element_blank(),
                                                                                                                                                                  axis.ticks.x = element_blank())
 
-traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of positiverates time-points 1-24 (Now-cast)") +   theme(axis.title.x = element_blank(),
-                                                                                                                                                    axis.text.x = element_blank(),
-                                                                                                                                                    axis.ticks.x = element_blank())
+#traceplot_positiverate_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(positiverates[1:24]))) +
+#  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of positiverates time-points 1-24 (Now-cast)") +   theme(axis.title.x = element_blank(),
+#                                                                                                                                                    axis.text.x = element_blank(),
+#                                                                                                                                                    axis.ticks.x = element_blank())
 
 traceplot_gamma2_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[1:24])) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Now-cast)") +   theme(axis.title.x = element_blank(),
+  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle(expression(paste("Trace plots of ", gamma["2t"], " (Census Household Pulse) time points 1-24 (Now-cast)"))) +   theme(axis.title.x = element_blank(),
                                                                                                                                                                      axis.text.x = element_blank(),
                                                                                                                                                                      axis.ticks.x = element_blank())
 
 traceplot_gamma2_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma2[25:48])) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of gamma (Census Household Pulse) time-points 1-24 (Now-cast)") +   theme(axis.title.x = element_blank(),
+  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle(expression(paste("Trace plots of ", gamma["2t"] ," (Census Household Pulse) time points 25-48 (Now-cast)"))) +   theme(axis.title.x = element_blank(),
                                                                                                                                                                      axis.text.x = element_blank(),
                                                                                                                                                                      axis.ticks.x = element_blank())
 
 traceplot_gamma3_1_24 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% gamma3[1:24])) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of gamma (Delphi-Facebook) time-points 1-24 (Now-cast)") +   theme(axis.title.x = element_blank(),
+  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle(expression(paste("Trace plots of ", gamma["3t"], " (Delphi-Facebook) time points 1-24 (Now-cast)"))) +   theme(axis.title.x = element_blank(),
                                                                                                                                                               axis.text.x = element_blank(),
                                                                                                                                                               axis.ticks.x = element_blank())
 
 traceplot_gamma3_25_48 <- ggs_traceplot(mcmc.list.tail %>% filter(Parameter %in% c(as.character(gamma3[25:48]),"pisq"))) +
-  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle("Trace plots of gamma (Delphi-Facebook) and pisq time-points 1-24 (Now-cast)") +   theme(axis.title.x = element_blank(),
+  facet_wrap(~Parameter,scale = "free_y") + theme_bw(base_size =18) + ggtitle(expression(paste("Trace plots of ", gamma["3t"]," (Delphi-Facebook) and ",pi^2 ," time points 25-48 (Now-cast)"))) +   theme(axis.title.x = element_blank(),
                                                                                                                                                                        axis.text.x = element_blank(),
                                                                                                                                                                        axis.ticks.x = element_blank())
 
 
 
-ggsave("Figures/traceplot_posrate_1_24_nowcast.png",plot = traceplot_positiverate_1_24,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_posrate_25_48_nowcast.png",plot = traceplot_positiverate_25_48,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma2_1_24_nowcast.png",plot = traceplot_gamma2_1_24,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma2_25_48_nowcast.png",plot = traceplot_gamma2_25_48,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma3_1_24_nowcast.png",plot = traceplot_gamma3_1_24,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
-ggsave("Figures/traceplot_gamma3_25_48_nowcast.png",plot = traceplot_gamma3_25_48,width = 48,height = 40, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_posrate_1_24_nowcast.png",plot = traceplot_positiverate_1_24,width = 46,height = 41, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_posrate_25_48_nowcast.png",plot = traceplot_positiverate_25_48,width = 46,height = 41, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma2_1_24_nowcast.png",plot = traceplot_gamma2_1_24,width = 46,height = 41, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma2_25_48_nowcast.png",plot = traceplot_gamma2_25_48,width = 46,height = 41, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma3_1_24_nowcast.png",plot = traceplot_gamma3_1_24,width = 46,height = 41, unit = "cm",bg = "white", dpi = 250)
+ggsave("Figures/traceplot_gamma3_25_48_nowcast.png",plot = traceplot_gamma3_25_48,width = 46,height = 41, unit = "cm",bg = "white", dpi = 250)
 
 
